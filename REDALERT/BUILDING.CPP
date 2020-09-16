@@ -1973,7 +1973,7 @@ void BuildingClass::Active_Click_With(ActionType action, CELL cell)
 			OutList.Add(EventClass(EventClass::SELL, TargetClass(this)));
 
 			COORDINATE coord = Map.Pixel_To_Coord(Get_Mouse_X(), Get_Mouse_Y());
-			OutList.Add(EventClass(ANIM_MOVE_FLASH, PlayerPtr->Class->House, coord));
+			OutList.Add(EventClass(ANIM_MOVE_FLASH, PlayerPtr->Class->House, coord, 1 << PlayerPtr->Class->House));
 		}
 		else if (Can_Have_Rally_Point()) {
 			Player_Set_Rally_Point(::As_Target(cell));
@@ -3287,7 +3287,7 @@ bool BuildingClass::Captured(HouseClass * newowner)
 	assert(Buildings.ID(this) == ID);
 	assert(IsActive);
 
-	if (Class->IsCaptureable && newowner != House) {
+	if (Can_Capture() && newowner != House) {
 #ifdef TOFIX
 		switch (Owner()) {
 			case HOUSE_GOOD:
@@ -3597,6 +3597,19 @@ bool BuildingClass::Can_Demolish_Unit(void) const
 }
 
 
+bool BuildingClass::Can_Capture(void) const
+{
+	bool can_capture = Class->IsCaptureable && Mission != MISSION_DECONSTRUCTION;
+
+	// Only allow capturing of multiplayer-owned structures
+	if (Session.Type != GAME_NORMAL) {
+		can_capture &= House->Class->House >= HOUSE_MULTI1 && House->Class->House <= HOUSE_MULTI8;
+	}
+
+	return(can_capture);
+}
+
+
 /***********************************************************************************************
  * BuildingClass::Mission_Guard -- Handles guard mission for combat buildings.                 *
  *                                                                                             *
@@ -3899,6 +3912,7 @@ int BuildingClass::Mission_Deconstruction(void)
 				Status = DURING;
 				Begin_Mode(BSTATE_CONSTRUCTION);
 				IsReadyToCommence = false;
+				IsSurvivorless = true;
 				break;
 			}
 			Transmit_Message(RADIO_RUN_AWAY);
