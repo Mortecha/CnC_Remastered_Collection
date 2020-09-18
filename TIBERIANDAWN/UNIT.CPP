@@ -2462,17 +2462,39 @@ static int _refinery_compare(const void * left, const void * right)
 BuildingClass* UnitClass::Find_Best_Refinery(void) const
 {
 	static DynamicVectorClass<RefineryData> _refineries;
-
-	_refineries.Clear();
-	for (int i = 0; i < Buildings.Count(); ++i) {
-		BuildingClass* refinery = Buildings.Ptr(i);
-		if (refinery != NULL &&
-			refinery->House == House &&
-			!refinery->IsInLimbo &&
-			*refinery == STRUCT_REFINERY) {
-			_refineries.Add(RefineryData{ refinery, Distance(refinery), 0 });
-		}
-	}
+    bool usable_astar_result = false;
+    int astar_result;
+    
+    if (ActiveCFEPatchConfig.EnableASPathing){
+        _refineries.Clear();
+        for (int i = 0; i < Buildings.Count(); ++i) {
+            BuildingClass* refinery = Buildings.Ptr(i);
+            if (refinery != NULL &&
+                refinery->House == House &&
+                !refinery->IsInLimbo &&
+                *refinery == STRUCT_REFINERY) {
+                    astar_result = Find_Path_AStar(nullptr, Coord_Cell(Coord), refinery->Nearby_Location(), 1, MOVE_NO, -1);
+                    if (astar_result){
+                        _refineries.Add(RefineryData{ refinery, astar_result, 0 });
+                        usable_astar_result = true;
+                    }
+            }
+        }
+    }
+    
+    // Use crow-flies distance if A-Star not enabled or if A-Star failed to find any paths
+    if (!usable_astar_result ){
+        _refineries.Clear();
+        for (int i = 0; i < Buildings.Count(); ++i) {
+            BuildingClass* refinery = Buildings.Ptr(i);
+            if (refinery != NULL &&
+                refinery->House == House &&
+                !refinery->IsInLimbo &&
+                *refinery == STRUCT_REFINERY) {
+                    _refineries.Add(RefineryData{ refinery, Distance(refinery), 0 });
+            }
+        }
+    }
 
 	// Base case for zero or one refineries.
 	if (_refineries.Count() == 0) {

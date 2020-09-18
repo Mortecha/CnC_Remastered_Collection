@@ -281,10 +281,13 @@ class FootClass :	public TechnoClass
 
 		void Set_Attack_Move(bool value) { IsAttackMoving = value; }
 		bool Is_Attack_Moving() const { return IsAttackMoving; }
+		
+		// make  public so UNIT.CPP can use it
+		int Find_Path_AStar(PathType* const resultPath, const CELL source, CELL dest, const int maxLen, const MoveType threshhold, const int threat) const;
 	private:
 		int Passable_Cell(CELL cell, FacingType face, int threat, MoveType threshhold) const;
 		PathType * Find_Path(CELL dest, FacingType *final_moves, int maxlen, MoveType threshhold);
-		int Find_Path_AStar(PathType* const resultPath, const CELL source, CELL dest, const int maxLen, const MoveType threshhold, const int threat) const;
+		//int Find_Path_AStar(PathType* const resultPath, const CELL source, CELL dest, const int maxLen, const MoveType threshhold, const int threat) const;
 		CELL Find_Passable_Position_Near(const CELL target, const int maxRadius, const MoveType threshhold, const int threat) const;
 		void Debug_Draw_Map(char *txt, CELL start, CELL dest, bool pause);
 		void Debug_Draw_Path(PathType *path) const;
