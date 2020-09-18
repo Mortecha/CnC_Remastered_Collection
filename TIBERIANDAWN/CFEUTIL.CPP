@@ -116,10 +116,10 @@ bool Reconcile_Config_With_Default(const INIClass& default, INIClass& config)
 //cfehunter 12/06/2020 I really miss std::filesystem
 void Initialise_CFE_Patch_Config()
 {
-	static constexpr const char* DefaultININame = "DEFAULT.CFEPATCH.INI";
+	static constexpr const char* DefaultININame = "DEFAULT.CFEPATCHREDUX.INI";
 
-	const std::string ini_dir = Get_User_Mod_Dir() + "\\CFEPatch";
-	const std::string ini_path = ini_dir + "\\CFEPATCH.INI";
+	const std::string ini_dir = Get_User_Mod_Dir() + "\\CFEPatchRedux";
+	const std::string ini_path = ini_dir + "\\CFEPATCHREDUX.INI";
 
 	INIClass default_ini;
 	Load_INI_File(default_ini, DefaultININame);
