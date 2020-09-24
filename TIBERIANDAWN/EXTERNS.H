@@ -82,6 +82,7 @@ struct CFEPatchConfig
 	bool EnableOOMRepair = false;
 	bool EnableRallyPoints = false;
 	bool EnableHarvyQueueJump = false;
+    bool EnableHarvyLoadBalancing = false;
     bool EnableHarvyOptimize = false;
 	bool EnableHarvySelfRepair = false;
 	bool DisableCommandoAirstrikes = false;
@@ -90,12 +91,12 @@ struct CFEPatchConfig
 	bool EnableCommandoGuard = false;
 	bool EnableSafeSabotage = false;
 	int  BuildingGap = 2;
-	int  HarvyQueueJumpCutoff = 3;
+	int  HarvyQueueJumpCutoff = 4;
     int  HarvyOptimizeUnloadWaitWeight = 13;
-    int  HarvyOptimizeThrashingCutoff = 7;
-    int  HarvyOptimizeThrashingNumerator = 1;
-    int  HarvyOptimizeThrashingDenominator = 2;
-    int  HarvyOptimizeThrashingWeight = 6;
+    int  HarvyOptimizeThrashingCutoff = 5;
+    int  HarvyOptimizeThrashingNumerator = 2;
+    int  HarvyOptimizeThrashingDenominator = 3;
+    int  HarvyOptimizeThrashingWeight = 8;
     int  HarvyOptimizeCommunalismNumerator = 9;
     int  HarvyOptimizeCommunalismDenominator = 4;
     int  HarvyOptimizeCommunalismWeight = 29;

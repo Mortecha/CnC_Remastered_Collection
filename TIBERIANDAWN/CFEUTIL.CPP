@@ -50,6 +50,7 @@ void Populate_CFE_Patch_Config_From_INI(const INIClass& ini)
 	GetSetting(ActiveCFEPatchConfig.EnableASPathing           , "FEATURES", "ASTAR_PATHING");
 	GetSetting(ActiveCFEPatchConfig.EnableOOMRepair           , "FEATURES", "OOM_REPAIR");
 	GetSetting(ActiveCFEPatchConfig.EnableHarvyQueueJump      , "FEATURES", "HARVY_QUEUE_JUMP");
+    GetSetting(ActiveCFEPatchConfig.EnableHarvyLoadBalancing      , "FEATURES", "HARVY_LOAD_BALANCING");
     GetSetting(ActiveCFEPatchConfig.EnableHarvyOptimize      , "FEATURES", "HARVY_OPTIMIZE");
 	GetSetting(ActiveCFEPatchConfig.EnableHarvySelfRepair     , "FEATURES", "HARVY_SELF_REPAIR");
 	GetSetting(ActiveCFEPatchConfig.DisableCommandoAirstrikes , "FEATURES", "DISABLE_COMMANDO_AIRSTRIKES");

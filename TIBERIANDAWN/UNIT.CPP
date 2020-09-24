@@ -400,7 +400,7 @@ void UnitClass::AI(void)
 	/*
 	**	Clear the unload refinery if not haresting or entering a refinery.
 	*/
-	if (Class->IsToHarvest) {
+	if (Class->IsToHarvest && (ActiveCFEPatchConfig.EnableHarvyLoadBalancing || ActiveCFEPatchConfig.EnableHarvyOptimize)) {
 		if (Mission != MISSION_HARVEST) {
 			if (Mission != MISSION_ENTER ||
 				!In_Radio_Contact() ||
@@ -410,7 +410,7 @@ void UnitClass::AI(void)
 			}
 		}
 	}
-
+	
 	/*
 	**	Rocket launchers will reload every so often.
 	*/
@@ -767,6 +767,22 @@ RadioMessageType UnitClass::Receive_Message(RadioClass * from, RadioMessageType 
 				return(RADIO_ROGER);
 			}
 			break;
+
+		/*
+		**	Something bad has happened to the object in contact with. Abort any coordinated
+		**	activity with this object. Basically, ... run away! Run away!
+		*/
+		case RADIO_RUN_AWAY:
+			if (Class->IsToHarvest && In_Radio_Contact() && Mission == MISSION_ENTER) {
+				TechnoClass * contact = Contact_With_Whom();
+				if (contact->What_Am_I() == RTTI_BUILDING && *((BuildingClass*)contact) == STRUCT_REFINERY) {
+					// Slight hack; set a target so the harvest mission knows to skip to finding home state
+					Assign_Mission(MISSION_HARVEST);
+					TarCom = As_Target();
+					return(RADIO_ROGER);
+				}
+			}
+			return(DriveClass::Receive_Message(from, message, param));
 
 		/*
 		**	When this message is received, it means that the other object
@@ -2430,7 +2446,6 @@ bool UnitClass::Goto_Tiberium(void)
 	return(false);
 }
 
-
 struct RefineryData
 {
 	BuildingClass* Refinery;
@@ -2471,6 +2486,28 @@ BuildingClass* UnitClass::Find_Best_Refinery(void) const
     The conversions have been moved to CFEUTIL.CPP so they only get computed once.
     (Also, the CELL version of Distance() uses 1.5 for diagonal distance instead of sqrt(2); should maybe improve that someday...)
     */
+    
+    // default behavior from 9/24/2020 hotfix
+    if (!ActiveCFEPatchConfig.EnableHarvyLoadBalancing && !ActiveCFEPatchConfig.EnableHarvyOptimize){
+        /*
+        **	Remember our last refinery and prefer that one, if still available and valid.
+        */
+        if (TiberiumUnloadRefinery != NULL) {
+            if (TiberiumUnloadRefinery->House == House &&
+                !TiberiumUnloadRefinery->IsInLimbo &&
+                TiberiumUnloadRefinery->Mission != MISSION_DECONSTRUCTION &&
+                *TiberiumUnloadRefinery == STRUCT_REFINERY) {
+                return TiberiumUnloadRefinery;
+            } else {
+                TiberiumUnloadRefinery = NULL;
+            }
+        }
+        /*
+        **	Find nearby refinery and head to it?
+        */
+        return Find_Docking_Bay(STRUCT_REFINERY, false);
+    }
+    
     
 	static DynamicVectorClass<RefineryData> _refineries;
     
@@ -2907,7 +2944,9 @@ int UnitClass::Mission_Harvest(void)
 				IsHarvesting = false;
 				Status = FINDHOME;
 				Assign_Target(TARGET_NONE); //Clear out the target or it'll assume it already has a refinery to go towards
-                TiberiumUnloadRefinery = NULL;
+                if (ActiveCFEPatchConfig.EnableHarvyLoadBalancing || ActiveCFEPatchConfig.EnableHarvyOptimize){
+                    TiberiumUnloadRefinery = NULL;
+                }
 				return 1;
 			}
 			
@@ -2920,9 +2959,10 @@ int UnitClass::Mission_Harvest(void)
 				Assign_Target(TARGET_NONE);
 				Status = FINDHOME;
 				return(1);
-			}
-
-			TiberiumUnloadRefinery = NULL;
+			} 
+			if (ActiveCFEPatchConfig.EnableHarvyLoadBalancing || ActiveCFEPatchConfig.EnableHarvyOptimize){
+                TiberiumUnloadRefinery = NULL;
+            }
 			if (Goto_Tiberium()) {
 				IsHarvesting = true;
 				Set_Rate(2);
@@ -2985,18 +3025,41 @@ int UnitClass::Mission_Harvest(void)
 			if (!Target_Legal(NavCom)) {
 
 				/*
-				**	Find nearby refinery and head to it.
+				**	Find best refinery.
 				*/
                 // CFE NOTE: ActiveCFEPatchConfig.EnableHarvyQueueJump stuff used to happen here, but 9/16/2020 official patch seems to implictily include harvy side of queue jumping
-				BuildingClass * nearest = Find_Best_Refinery();
-				if (nearest) {
-					TiberiumUnloadRefinery = nearest;
-					if (Transmit_Message(RADIO_HELLO, nearest) == RADIO_ROGER) {
-						Status = HEADINGHOME;
-					} else {
-						Assign_Destination(::As_Target(nearest->Nearby_Location(this)));
-					}
-				}
+                BuildingClass * nearest = Find_Best_Refinery();
+                if (ActiveCFEPatchConfig.EnableHarvyLoadBalancing || ActiveCFEPatchConfig.EnableHarvyOptimize){
+                    if (nearest) {
+                        TiberiumUnloadRefinery = nearest;
+                        if (Transmit_Message(RADIO_HELLO, nearest) == RADIO_ROGER) {
+                            Status = HEADINGHOME;
+                        } else {
+                            Assign_Destination(::As_Target(nearest->Nearby_Location(this)));
+                        }
+                    }
+                }
+                else { //default 9/24/2020 hotfix behavior
+                    /*
+                    **	Since the refinery said it was ok to load, establish radio
+                    **	contact with the refinery and then await docking orders.
+                    */
+                    if (nearest && Transmit_Message(RADIO_HELLO, nearest) == RADIO_ROGER) {
+                        Status = HEADINGHOME;
+                    } else {
+                        ScenarioInit++;
+                        nearest = Find_Best_Refinery();
+                        ScenarioInit--;
+                        if (nearest) {
+                            if (ActiveCFEPatchConfig.EnableHarvyQueueJump && Transmit_Message(RADIO_HELLO, nearest) == RADIO_ROGER) {
+                                Status = HEADINGHOME;
+                            }
+                            else {
+                                Assign_Destination(::As_Target(nearest->Nearby_Location(this)));
+                            }
+                        }
+                    }
+                }
 			}
 			break;
 
@@ -3010,7 +3073,9 @@ int UnitClass::Mission_Harvest(void)
 			return(1);
 
 		case GOINGTOIDLE:
-			TiberiumUnloadRefinery = NULL;
+            if (ActiveCFEPatchConfig.EnableHarvyLoadBalancing || ActiveCFEPatchConfig.EnableHarvyOptimize){
+                TiberiumUnloadRefinery = NULL;
+            }
 			Assign_Mission(MISSION_GUARD);
 			break;
 
@@ -3086,6 +3151,32 @@ int UnitClass::Mission_Hunt(void)
 		}
 	}
 	return(TICKS_PER_SECOND);
+}
+
+
+int UnitClass::Mission_Enter(void)
+{
+    if (ActiveCFEPatchConfig.EnableHarvyLoadBalancing || ActiveCFEPatchConfig.EnableHarvyOptimize){
+        return(TarComClass::Mission_Enter());
+    }
+    
+	Validate();
+	if (Class->IsToHarvest) {
+		TechnoClass * contact = Contact_With_Whom();
+		if (contact == NULL) {
+			contact = As_Techno(ArchiveTarget);
+		}
+		if (contact == NULL) {
+			contact = As_Techno(NavCom);
+		}
+		if (contact != NULL &&
+			contact->What_Am_I() == RTTI_BUILDING &&
+			*((BuildingClass*)contact) == STRUCT_REFINERY) {
+			TiberiumUnloadRefinery = (BuildingClass*)contact;
+		}
+	}
+
+	return(TarComClass::Mission_Enter());
 }
 
 
