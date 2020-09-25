@@ -82,6 +82,7 @@ struct CFEPatchConfig
 	bool EnableOOMRepair = false;
 	bool EnableRallyPoints = false;
 	bool EnableHarvyQueueJump = false;
+    bool EnableHarvyOptimize = false;
 	bool EnableHarvySelfRepair = false;
 	bool DisableCommandoAirstrikes = false;
 	bool WallsAlwaysHaveFullCost = true;
@@ -90,6 +91,14 @@ struct CFEPatchConfig
 	bool EnableSafeSabotage = false;
 	int  BuildingGap = 2;
 	int  HarvyQueueJumpCutoff = 3;
+    int  HarvyOptimizeUnloadWaitWeight = 13;
+    int  HarvyOptimizeThrashingCutoff = 7;
+    int  HarvyOptimizeThrashingNumerator = 1;
+    int  HarvyOptimizeThrashingDenominator = 2;
+    int  HarvyOptimizeThrashingWeight = 6;
+    int  HarvyOptimizeCommunalismNumerator = 9;
+    int  HarvyOptimizeCommunalismDenominator = 4;
+    int  HarvyOptimizeCommunalismWeight = 29;
 	int  TibGrowthScale = 1;
 	int  WallBuildLength = 5;
 };

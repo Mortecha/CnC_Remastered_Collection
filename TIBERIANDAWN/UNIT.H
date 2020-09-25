@@ -194,6 +194,8 @@ class UnitClass :	public TarComClass
 		*/
 		int Validate(void) const;
 
+        void ReconsiderRefinery(void);
+        
 	private:
 
 		/*

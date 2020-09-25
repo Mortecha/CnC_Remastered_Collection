@@ -254,8 +254,43 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 					UnitClass& currentHarvy = *static_cast<UnitClass*>(Contact_With_Whom());
 					UnitClass& newHarvy     = *static_cast<UnitClass*>(from);
 
-					const int currentHarvyDistance = currentHarvy.Distance(this);
-					if (currentHarvyDistance > ActiveCFEPatchConfig.HarvyQueueJumpCutoff && newHarvy.Distance(this) < currentHarvyDistance) {
+                    int currentHarvyDistance;
+                    int newHarvyDistance;
+                    if (ActiveCFEPatchConfig.EnableASPathing){
+                        int currentHarvyDistanceAStar = currentHarvy.Find_Path_AStar(nullptr, Coord_Cell(currentHarvy.Coord),  Coord_Cell(this->Center_Coord()), 1, MOVE_NO, -1);
+                        if (currentHarvyDistanceAStar){
+                            currentHarvyDistance = currentHarvyDistanceAStar;
+                        }
+                        else{ //either harvy is right on top of refinery, or no path at all
+                            int currentHarvyDistanceCrowFlies = currentHarvy.Distance(Coord_Cell(this->Center_Coord()));
+                            if (currentHarvyDistanceCrowFlies <= 6){
+                                currentHarvyDistance = currentHarvyDistanceCrowFlies;
+                            }
+                            else {
+                                currentHarvyDistance = INT_MAX;
+                            }
+                        }
+                        int newHarvyDistanceAStar = newHarvy.Find_Path_AStar(nullptr, Coord_Cell(newHarvy.Coord),  Coord_Cell(this->Center_Coord()), 1, MOVE_NO, -1);
+                        if (newHarvyDistanceAStar){
+                            newHarvyDistance = newHarvyDistanceAStar;
+                        }
+                        else{ //either harvy is right on top of refinery, or no path at all
+                            int newHarvyDistanceCrowFlies = newHarvy.Distance(Coord_Cell(this->Center_Coord()));
+                            if (newHarvyDistanceCrowFlies <= 6){
+                                newHarvyDistance = newHarvyDistanceCrowFlies;
+                            }
+                            else {
+                                newHarvyDistance = INT_MAX;
+                            }
+                        }
+                    }
+                    else{ // A-Star not enabled
+                        currentHarvyDistance = currentHarvy.Distance(this);
+                        newHarvyDistance = newHarvy.Distance(this);
+                        // ActiveCFEPatchConfig.HarvyQueueJumpCutoff converted from cells to leptons in CFEUTIL.CPP
+                    }
+                    
+					if (currentHarvyDistance > ActiveCFEPatchConfig.HarvyQueueJumpCutoff && newHarvyDistance < currentHarvyDistance) {
 
 						//Kick the current harvester out
 						Transmit_Message(RADIO_CANCEL, &currentHarvy);
@@ -467,6 +502,18 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 			//Turn off the refinery lights - LLL April 22, 2020
 			if (*this == STRUCT_REFINERY) {
 				Begin_Mode(BSTATE_IDLE);
+                // tell all harvesters that are heading to a refinery, but not first in line to their respective refineries, to re-pick refineries
+                if (ActiveCFEPatchConfig.EnableHarvyOptimize){
+                    for (int i = 0; i < Units.Count(); ++i) {
+                        UnitClass* unit = Units.Ptr(i);
+                        if (unit->IsActive &&
+                            unit->Class->IsToHarvest &&
+                            unit->House == House
+                        ) {
+                            unit->ReconsiderRefinery();
+                        }
+                    }
+				}
 			}
 
 			TechnoClass::Receive_Message(from, message, param);

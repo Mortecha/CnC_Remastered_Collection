@@ -50,6 +50,7 @@ void Populate_CFE_Patch_Config_From_INI(const INIClass& ini)
 	GetSetting(ActiveCFEPatchConfig.EnableASPathing           , "FEATURES", "ASTAR_PATHING");
 	GetSetting(ActiveCFEPatchConfig.EnableOOMRepair           , "FEATURES", "OOM_REPAIR");
 	GetSetting(ActiveCFEPatchConfig.EnableHarvyQueueJump      , "FEATURES", "HARVY_QUEUE_JUMP");
+    GetSetting(ActiveCFEPatchConfig.EnableHarvyOptimize      , "FEATURES", "HARVY_OPTIMIZE");
 	GetSetting(ActiveCFEPatchConfig.EnableHarvySelfRepair     , "FEATURES", "HARVY_SELF_REPAIR");
 	GetSetting(ActiveCFEPatchConfig.DisableCommandoAirstrikes , "FEATURES", "DISABLE_COMMANDO_AIRSTRIKES");
 	GetSetting(ActiveCFEPatchConfig.EnableAttackMove          , "FEATURES", "ATTACK_MOVE");
@@ -59,12 +60,37 @@ void Populate_CFE_Patch_Config_From_INI(const INIClass& ini)
 	//Settings
 	GetSetting(ActiveCFEPatchConfig.BuildingGap               , "SETTINGS", "BUILDING_GAP");
 	GetSetting(ActiveCFEPatchConfig.HarvyQueueJumpCutoff      , "SETTINGS", "QUEUE_JUMP_CUTOFF");
+    GetSetting(ActiveCFEPatchConfig.HarvyOptimizeUnloadWaitWeight      , "SETTINGS", "HARVY_OPTIMIZE_UNLOAD_WAIT_WEIGHT");
+    GetSetting(ActiveCFEPatchConfig.HarvyOptimizeThrashingCutoff      , "SETTINGS", "HARVY_OPTIMIZE_THRASHING_CUTOFF");
+    GetSetting(ActiveCFEPatchConfig.HarvyOptimizeThrashingNumerator      , "SETTINGS", "HARVY_OPTIMIZE_THRASHING_NUMERATOR");
+    GetSetting(ActiveCFEPatchConfig.HarvyOptimizeThrashingDenominator      , "SETTINGS", "HARVY_OPTIMIZE_THRASHING_DENOMINATOR");
+    GetSetting(ActiveCFEPatchConfig.HarvyOptimizeCommunalismNumerator      , "SETTINGS", "HARVY_OPTIMIZE_COMMUNALISM_NUMERATOR");
+    GetSetting(ActiveCFEPatchConfig.HarvyOptimizeCommunalismDenominator      , "SETTINGS", "HARVY_OPTIMIZE_COMMUNALISM_DENOMINATOR");
 	GetSetting(ActiveCFEPatchConfig.TibGrowthScale            , "SETTINGS", "TIB_GROWTH_SCALE");
 	GetSetting(ActiveCFEPatchConfig.WallBuildLength           , "SETTINGS", "WALL_BUILD_LENGTH");
 	GetSetting(ActiveCFEPatchConfig.WallsAlwaysHaveFullCost   , "SETTINGS", "WALLS_HAVE_FULL_COST");
 
 	//Clamp Wall Length between 1 (build at all) and 10 (buffer limits)
 	ActiveCFEPatchConfig.WallBuildLength = (std::max)(1, (std::min)(ActiveCFEPatchConfig.WallBuildLength, 10));
+    
+    // If A-Star isn't enabled, distance constants will be compared against leptons rather than cells, so convert here
+    if (!ActiveCFEPatchConfig.EnableASPathing){
+        ActiveCFEPatchConfig.HarvyQueueJumpCutoff = Cell_To_Lepton(ActiveCFEPatchConfig.HarvyQueueJumpCutoff);
+        ActiveCFEPatchConfig.HarvyOptimizeUnloadWaitWeight = Cell_To_Lepton(ActiveCFEPatchConfig.HarvyOptimizeUnloadWaitWeight);
+        ActiveCFEPatchConfig.HarvyOptimizeThrashingCutoff = Cell_To_Lepton(ActiveCFEPatchConfig.HarvyOptimizeThrashingCutoff);
+    }
+    
+    // Denominators can't be zero
+    if (ActiveCFEPatchConfig.HarvyOptimizeThrashingDenominator == 0){
+        ActiveCFEPatchConfig.HarvyOptimizeThrashingDenominator = 1;
+    }
+    if (ActiveCFEPatchConfig.HarvyOptimizeCommunalismDenominator == 0){
+        ActiveCFEPatchConfig.HarvyOptimizeCommunalismDenominator = 1;
+    }
+    
+    // Compute complex weights here so they only have to be computed once
+    ActiveCFEPatchConfig.HarvyOptimizeThrashingWeight = (ActiveCFEPatchConfig.HarvyOptimizeUnloadWaitWeight * ActiveCFEPatchConfig.HarvyOptimizeThrashingNumerator) / ActiveCFEPatchConfig.HarvyOptimizeThrashingDenominator;
+    ActiveCFEPatchConfig.HarvyOptimizeCommunalismWeight = (ActiveCFEPatchConfig.HarvyOptimizeUnloadWaitWeight * ActiveCFEPatchConfig.HarvyOptimizeCommunalismNumerator) / ActiveCFEPatchConfig.HarvyOptimizeCommunalismDenominator;
 }
 
 bool Create_CFE_Patch_Directory(const char* path)
