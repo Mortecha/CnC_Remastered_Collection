@@ -1,7 +1,7 @@
 {
     "name": "CFE Patch Redux",
     "description": "Compendium of QOL patches from cfehunter, updated for current official patch and new features by ChthonVII",
-    "author": "Chthon",
+    "author": "ChthonVII",
     "load_order": 1,
     "version_low": 3,
     "version_high": 1,
