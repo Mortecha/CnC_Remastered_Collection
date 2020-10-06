@@ -2538,14 +2538,18 @@ BuildingClass* UnitClass::Find_Best_Refinery(void) const
             }
         }
     }
-    else{
+    if (!ActiveCFEPatchConfig.EnableASPathing || _refineries.Count() == 0){
         for (int i = 0; i < Buildings.Count(); ++i) {
             BuildingClass* refinery = Buildings.Ptr(i);
             if (refinery != NULL &&
                 refinery->House == House &&
                 !refinery->IsInLimbo &&
                 *refinery == STRUCT_REFINERY) {
-                    _refineries.Add(RefineryData{ refinery, Distance(refinery), 0 });
+                    int crowflies_result = Distance(refinery);
+                    if (ActiveCFEPatchConfig.EnableASPathing){
+                        crowflies_result = Lepton_To_Cell(crowflies_result);
+                    }
+                    _refineries.Add(RefineryData{ refinery, crowflies_result, 0 });
             }
         }
     }
@@ -2940,10 +2944,11 @@ int UnitClass::Mission_Harvest(void)
 		*/
 		case LOOKING:
 			//cfehunter 09th June 2020. Honestly this should probably be here anyway, but don't change normal behaviour unless the feature is turned on
-			if ((ActiveCFEPatchConfig.EnableHarvyQueueJump || ActiveCFEPatchConfig.EnableHarvyOptimize) && Tiberium_Load() == 0x0100) {
+			if ((ActiveCFEPatchConfig.EnableHarvyQueueJump || ActiveCFEPatchConfig.EnableHarvyOptimize || ActiveCFEPatchConfig.EnableHarvyLoadBalancing) && Tiberium_Load() == 0x0100) {
 				IsHarvesting = false;
 				Status = FINDHOME;
 				Assign_Target(TARGET_NONE); //Clear out the target or it'll assume it already has a refinery to go towards
+                // Only blank the unload refinery if we're using "load balancing" rather than "refinery remembering"
                 if (ActiveCFEPatchConfig.EnableHarvyLoadBalancing || ActiveCFEPatchConfig.EnableHarvyOptimize){
                     TiberiumUnloadRefinery = NULL;
                 }
@@ -4694,10 +4699,12 @@ void  UnitClass::ReconsiderRefinery(void){
     if (   //Tiberium_Load() == 0x0100 &&
             Target_Legal(NavCom) &&
             TiberiumUnloadRefinery != NULL &&
+            Mission == MISSION_HARVEST &&
             Status == 2 //&& // 2 is FINDHOME in the enum in UnitClass::Mission_Harvest() - should be in this state if not first in line
             //!In_Radio_Contact() // should be in this state if not first in line
         ) {
             Assign_Destination(TARGET_NONE);
+            Assign_Target(TARGET_NONE);
             TiberiumUnloadRefinery = NULL;
             //Status = 2; // 2 is FINDHOME in the enum in UnitClass::Mission_Harvest()
             //CFE_Debug_Printf("Reconsidered!");

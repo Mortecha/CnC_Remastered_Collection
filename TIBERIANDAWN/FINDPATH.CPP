@@ -605,7 +605,7 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
 		AStarCell* prev = nullptr;
 		CELL       position = 0;
 		int        cell_distance_from_start = 0;
-		int        cost_from_start = 0;
+		float        cost_from_start = 0;
 		float      estimated_cost_to_end = 0;
 	};
 
@@ -666,8 +666,24 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
 			const CELL adjacent_cell_id = Adjacent_Cell(prev_cell.position, facing);
 
 			//Passable cell returns 0 if the object can't enter the cell from this direction
-			int cell_cost = Passable_Cell(adjacent_cell_id, facing, threat, threshhold);
-			if (cell_cost)
+			float cell_cost = (float)Passable_Cell(adjacent_cell_id, facing, threat, threshhold);
+			// Let's try ignoring friendly units in motion unless they're really close, on the assumption that they'll move elsewhere before we arrive
+            // To really do this right, we'd have to consider the friendly unit's bearing verus the current last cell in our path and the ratio of their speed to our speed
+            // For now, let's just fudge some reasonable cutoffs
+            if (cell_cost == 3){ //MOVE_MOVING_BLOCK is 3
+                if (prev_cell.cell_distance_from_start > 4){
+                    cell_cost = 1;
+                }
+                else if  (prev_cell.cell_distance_from_start > 2){
+                    cell_cost = 2;
+                }
+            }
+            // diagonal moves cost more because Pythagoras and stuff...
+            if ((cell_cost) > 0 && ((facing == FACING_NE) || (facing == FACING_SE) || (facing == FACING_SW) || (facing == FACING_NW))){
+                cell_cost += 0.41f;
+            }
+            
+			if (cell_cost > 0)
 			{
 				cell_cost += prev_cell.cost_from_start;
 				auto emplace_result = visited_cells.try_emplace(adjacent_cell_id);
@@ -697,7 +713,7 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
 			return total_path_length;
 
 		//Cost is used for comparing paths with different threat thesholds, so use the overall cost regardless of truncation
-		resultPath->Cost = dest_result->cost_from_start;
+		resultPath->Cost = (int)(dest_result->cost_from_start + 0.5f); // +0.5 coupled with cast to int is equivalent to rounding (we need to go back to int unless we want to go changing WW's definition for PathType)
 
 		//Scrub back to the max path length to store
 		while (dest_result->prev && dest_result->cell_distance_from_start > maxLen) {
