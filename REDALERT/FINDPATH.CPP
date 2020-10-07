@@ -52,6 +52,7 @@
 #include <unordered_map>
 #include <vector>
 #include	"function.h"
+//#include "CFEDEBUG.H"
 
 //#include	<string.h>
 
@@ -536,7 +537,7 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
 		AStarCell* prev = nullptr;
 		CELL       position = 0;
 		int        cell_distance_from_start = 0;
-		int        cost_from_start = 0;
+		float        cost_from_start = 0;
 		float      estimated_cost_to_end = 0;
 	};
 
@@ -556,12 +557,16 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
 	//Target is impassable, try to account for that by finding a position nearby, or staying still if already close
 	if (!Passable_Cell(dest, FACING_NONE, threat, threshhold)) {
 		static const int impassableCloseEnough = 3;
-		const int distanceToDest = ::Distance(Cell_Coord(source), Cell_Coord(dest));
+		//const int distanceToDest = ::Distance(Cell_Coord(source), Cell_Coord(dest));
+        // bug! cfehunter's original used a TD distance function that returned CELL units, but this distance function returns lepton units, so it will always be much greater than 3
+        const int distanceToDest = Lepton_To_Cell(::Distance(Cell_Coord(source), Cell_Coord(dest)));
 		if (distanceToDest > impassableCloseEnough) {
 			const CELL nearbyDest = Find_Passable_Position_Near(dest, impassableCloseEnough, threshhold, threat);
 
 			//Failed to find a passable position at or near the target or nearby position is further away or equidistant to our current position, so just stay put
-			if (nearbyDest == 0 || ::Distance(Cell_Coord(dest), Cell_Coord(nearbyDest)) >= distanceToDest) {
+			//if (nearbyDest == 0 || ::Distance(Cell_Coord(dest), Cell_Coord(nearbyDest)) >= distanceToDest) {
+            // same bug 
+            if (nearbyDest == 0 || Lepton_To_Cell(::Distance(Cell_Coord(dest), Cell_Coord(nearbyDest))) >= distanceToDest) {
 				return 0;
 			}
 			else
@@ -597,8 +602,25 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
 			const CELL adjacent_cell_id = Adjacent_Cell(prev_cell.position, facing);
 
 			//Passable cell returns 0 if the object can't enter the cell from this direction
-			int cell_cost = Passable_Cell(adjacent_cell_id, facing, threat, threshhold);
-			if (cell_cost)
+			float cell_cost = (float)Passable_Cell(adjacent_cell_id, facing, threat, threshhold);
+            // Let's try ignoring friendly units in motion unless they're really close, on the assumption that they'll move elsewhere before we arrive
+            // To really do this right, we'd have to consider the friendly unit's bearing verus the current last cell in our path and the ratio of their speed to our speed
+            // For now, let's just fudge some reasonable cutoffs
+            if (cell_cost == 3){ //MOVE_MOVING_BLOCK is 3
+                if (prev_cell.cell_distance_from_start > 4){
+                    cell_cost = 1;
+                }
+                else if  (prev_cell.cell_distance_from_start > 2){
+                    cell_cost = 2;
+                }
+            }
+            // diagonal moves cost more because Pythagoras and stuff...
+            if ((cell_cost) > 0 && ((facing == FACING_NE) || (facing == FACING_SE) || (facing == FACING_SW) || (facing == FACING_NW))){
+                cell_cost += 0.41f;
+            }
+            
+            
+			if (cell_cost > 0)
 			{
 				cell_cost += prev_cell.cost_from_start;
 				auto emplace_result = visited_cells.try_emplace(adjacent_cell_id);
@@ -622,13 +644,13 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
 	if (dest_result)
 	{
 		const int total_path_length = dest_result->cell_distance_from_start;
-		
+        
 		//If we don't have a path to fill in, then just return here
 		if (resultPath == nullptr)
 			return total_path_length;
 
 		//Cost is used for comparing paths with different threat thesholds, so use the overall cost regardless of truncation
-		resultPath->Cost = dest_result->cost_from_start;
+		resultPath->Cost = (int)(dest_result->cost_from_start + 0.5f); // +0.5 coupled with cast to int is equivalent to rounding (we need to go back to int unless we want to go changing WW's definition for PathType)
 
 		//Scrub back to the max path length to store
 		while (dest_result->prev && dest_result->cell_distance_from_start > maxLen) {
@@ -638,6 +660,13 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
 		resultPath->Command[dest_result->cell_distance_from_start] = END;
 		resultPath->Length = dest_result->cell_distance_from_start;
 
+         /*if (total_path_length == 0){
+            CFE_Debug_Printf("Unit %i called A-Star path with total path length 0 after scrubbing.", this);
+        }
+        if (resultPath->Length == 0){
+            CFE_Debug_Printf("Unit %i called A-Star path with scrubbed length 0.", this);
+        }*/
+        
 		for (; dest_result->prev != nullptr; dest_result = dest_result->prev) {
 			const AStarCell& prev_node = *dest_result->prev;
 			resultPath->Command[prev_node.cell_distance_from_start] = CELL_FACING(prev_node.position, dest_result->position);
@@ -648,7 +677,9 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
 		{
 			Debug_Draw_Path(resultPath);
 		}
-
+        //fuck it, lets go whole hog debug
+        //Debug_Draw_Path(resultPath); //doesn't work?...
+		
 		return total_path_length;
 	}
 
@@ -734,6 +765,13 @@ PathType * FootClass::Find_Path(CELL dest, FacingType * final_moves, int maxlen,
 
 	if (ActiveCFEPatchConfig.EnableASPathing)
 	{
+        //if (What_Am_I() == RTTI_UNIT && *((UnitClass*)this) == UNIT_HARVESTER){
+        //     CFE_Debug_Printf("Unit %i is a harvy & is doing A-Star path.", this);
+        //}
+        //else {
+        //    CFE_Debug_Printf("Unit %i is doing A-Star path.", this);
+        //}
+        
 		int asThreat = threat;
 		bool result = false;
 		do
@@ -761,8 +799,13 @@ PathType * FootClass::Find_Path(CELL dest, FacingType * final_moves, int maxlen,
 		{
 			return &path;
 		}
+		//CFE_Debug_Printf("CRAP! Unit %i is about to fall through for mystery reason.", this);
 	}
-
+	//else{
+    //    CFE_Debug_Printf("What the flying fuck, how is this disabled?.");
+    //}
+    //CFE_Debug_Printf("CRAP! Unit %i fell through out of A-Star path.", this);
+	
 	/*
 	** Clear the over lap list and then make sure that our starting position is marked
 	** on the overlap list.  (Otherwise the harvesters will drive in circles... )

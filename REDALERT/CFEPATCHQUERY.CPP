@@ -23,7 +23,7 @@ bool CFE_Patch_Should_Attack_Move(const TARGET whom, const TARGET target)
 	return ActiveCFEPatchConfig.EnableAttackMove && whom == target;
 }
 
-bool CFE_Patch_Unit_Should_Rally(const FootClass& object)
+bool CFE_Patch_Unit_Should_Rally(const TechnoClass& object)
 {
 	switch (object.What_Am_I())
 	{

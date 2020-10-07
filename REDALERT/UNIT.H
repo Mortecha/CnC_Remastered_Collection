@@ -166,8 +166,11 @@ class UnitClass :	public DriveClass
 		virtual bool Ok_To_Move(DirType facing) const;
 		virtual FireErrorType Can_Fire(TARGET target, int which) const;
 		virtual fixed Tiberium_Load(void) const;
+        virtual BuildingClass* Tiberium_Unload_Refinery(void) const;
 		virtual BuildingClass* Find_Best_Refinery(void) const;
 
+        void ReconsiderRefinery(void);
+        
 		/*
 		**	Coordinate inquiry functions. These are used for both display and
 		**	combat purposes.

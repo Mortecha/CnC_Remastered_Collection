@@ -97,12 +97,23 @@ struct CFEPatchConfig
 	bool EnableOOMRepair = false;
 	bool EnableRallyPoints = false;
 	bool EnableHarvyQueueJump = false;
+    bool EnableHarvyLoadBalancing = false;
+    bool EnableHarvyOptimize = false;
 	bool EnableInstantCapture = false;
 	bool WallsAlwaysHaveFullCost = true;
 	bool EnableAttackMove = false;
 	bool EnableTanyaGuard = false;
+	bool EnableSafeSabotage = false;
 
-	int  HarvyQueueJumpCutoff = 3;
+	int  HarvyQueueJumpCutoff = 4;
+	int  HarvyOptimizeUnloadWaitWeight = 6;
+    int  HarvyOptimizeThrashingCutoff = 5;
+    int  HarvyOptimizeThrashingNumerator = 2;
+    int  HarvyOptimizeThrashingDenominator = 3;
+    int  HarvyOptimizeThrashingWeight = 4;
+    int  HarvyOptimizeCommunalismNumerator = 9;
+    int  HarvyOptimizeCommunalismDenominator = 4;
+    int  HarvyOptimizeCommunalismWeight = 13;
 	int  OreGrowthScale = 1;
 	int  WallBuildLength = 5;
 	int  BuildingGapOffset = 0;

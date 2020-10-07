@@ -360,7 +360,7 @@ class BuildingClass : public TechnoClass
 		bool Can_Have_Rally_Point(void) const;
 		virtual void Set_Unselected_By_Player(HouseClass* player = nullptr) override;
 
-		bool Rally_Unit(FootClass& unit);
+		bool Rally_Unit(TechnoClass& unit);
 	private:
 		void Drop_Debris(TARGET source = TARGET_NONE);
 		void Player_Set_Rally_Point(TARGET target);
