@@ -7,10 +7,10 @@
 ; either version 3 of the License, or (at your option) any later version.
 
 ; TiberianDawn.DLL and RedAlert.dll and corresponding source code is distributed 
-; in the hope that it will be useful, but with permitted additional restrictions 
+; in the hope that it will be useful, but with permitted supplemental terms 
 ; under Section 7 of the GPL. See the GNU General Public License in LICENSE.TXT 
 ; distributed with this program. You should have received a copy of the 
-; GNU General Public License along with permitted additional restrictions 
+; GNU General Public License along with permitted supplemental terms 
 ; with this program. If not, see [https://github.com/electronicarts/CnC_Remastered_Collection]>.
 
 ; $Header: g:/library/wwlib32/misc/rcs/lcwcomp.asm 1.1 1994/04/11 15:31:10 jeff_wilson Exp $
