@@ -212,6 +212,7 @@ class BuildingClass : public TechnoClass
 		//but it looks like memory is initialised to zeros when allocated from the object pools.
 		//So even though this CELL doesn't exist in older saves, it should be zero initialised.
 		//NOTE: /!\ Stole 2 bytes from the save game padding /!\/
+        //Chthon CFE Note: The TARGET type changed to 4 bytes in RA (see DEFINES.H), so you need to steal 4 bytes of padding, not just 2.
 		TARGET RallyPoint;
 
 		TARGET Target_For_Rally_Point(const SpeedType speed = SPEED_TRACK) const;
@@ -371,7 +372,8 @@ class BuildingClass : public TechnoClass
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[30];
+        //Chthon CFE Note: The TARGET type changed to 4 bytes in RA (see DEFINES.H), so you need to steal 4 bytes of padding, not just 2. (original padding was 32)
+		unsigned char SaveLoadPadding[28];
 
 		static COORDINATE const CenterOffset[BSIZE_COUNT];
 };
