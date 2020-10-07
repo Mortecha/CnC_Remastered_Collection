@@ -3034,7 +3034,6 @@ int UnitClass::Mission_Harvest(void)
 				/*
 				**	Find best refinery.
 				*/
-                // CFE NOTE: ActiveCFEPatchConfig.EnableHarvyQueueJump stuff used to happen here, but 9/16/2020 official patch seems to implictily include harvy side of queue jumping
                 BuildingClass * nearest = Find_Best_Refinery();
                 if (ActiveCFEPatchConfig.EnableHarvyLoadBalancing || ActiveCFEPatchConfig.EnableHarvyOptimize){
                     if (nearest) {
