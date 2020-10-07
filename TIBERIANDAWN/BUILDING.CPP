@@ -503,10 +503,11 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 			if (*this == STRUCT_REFINERY) {
 				Begin_Mode(BSTATE_IDLE);
                 // tell all harvesters that are heading to a refinery, but not first in line to their respective refineries, to re-pick refineries
-                if (ActiveCFEPatchConfig.EnableHarvyOptimize  && !this->IsInLimbo){
+                if (ActiveCFEPatchConfig.EnableHarvyOptimize && this->IsActive && !this->IsInLimbo ){
                     for (int i = 0; i < Units.Count(); ++i) {
                         UnitClass* unit = Units.Ptr(i);
-                        if (unit->IsActive &&
+                        if (unit != NULL &&
+                            unit->IsActive &&
                             !unit->IsInLimbo &&
                             unit->Class->IsToHarvest &&
                             unit->House == House

@@ -4566,8 +4566,9 @@ BuildingClass* UnitClass::Find_Best_Refinery(void) const
         if (Target_Legal(TiberiumUnloadRefinery)) {
             BuildingClass * refinery = As_Building(TiberiumUnloadRefinery);
             if (refinery != NULL &&
-                refinery->House == House &&
+                refinery->IsActive &&
                 !refinery->IsInLimbo &&
+                refinery->House == House &&
                 refinery->Mission != MISSION_DECONSTRUCTION &&
                 *refinery == STRUCT_REFINERY &&
                 Map[refinery->Center_Coord()].Zones[Techno_Type_Class()->MZone] == Map[Center_Coord()].Zones[Techno_Type_Class()->MZone]) {
@@ -4591,8 +4592,9 @@ BuildingClass* UnitClass::Find_Best_Refinery(void) const
         for (int i = 0; i < Buildings.Count(); ++i) {
             BuildingClass* refinery = Buildings.Ptr(i);
             if (refinery != NULL &&
-                refinery->House == House &&
+                refinery->IsActive &&
                 !refinery->IsInLimbo &&
+                refinery->House == House &&
                 refinery->Mission != MISSION_DECONSTRUCTION &&
                 *refinery == STRUCT_REFINERY &&
                 Map[refinery->Center_Coord()].Zones[Techno_Type_Class()->MZone] == Map[Center_Coord()].Zones[Techno_Type_Class()->MZone]) {
@@ -4649,7 +4651,7 @@ BuildingClass* UnitClass::Find_Best_Refinery(void) const
 	int num_harvesters = 0;
 	for (int i = 0; i < Units.Count(); ++i) {
 		UnitClass* unit = Units.Ptr(i);
-		if (unit->IsActive && unit->Class->IsToHarvest && unit->House == House) {
+		if (unit != NULL && unit->IsActive && !unit->IsInLimbo && unit->Class->IsToHarvest && unit->House == House) {
 			BuildingClass* refinery = unit->Tiberium_Unload_Refinery();
 			if (refinery != NULL) {
 				int index = _refineries.ID(RefineryData{ refinery });

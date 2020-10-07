@@ -2516,8 +2516,9 @@ BuildingClass* UnitClass::Find_Best_Refinery(void) const
         for (int i = 0; i < Buildings.Count(); ++i) {
             BuildingClass* refinery = Buildings.Ptr(i);
             if (refinery != NULL &&
-                refinery->House == House &&
+                refinery->IsActive &&
                 !refinery->IsInLimbo &&
+                refinery->House == House &&
                 *refinery == STRUCT_REFINERY) {
                     int astar_result = Find_Path_AStar(nullptr, Coord_Cell(Coord), Coord_Cell(refinery->Center_Coord()), 1, MOVE_NO, -1);
                     if (astar_result){
@@ -2542,8 +2543,9 @@ BuildingClass* UnitClass::Find_Best_Refinery(void) const
         for (int i = 0; i < Buildings.Count(); ++i) {
             BuildingClass* refinery = Buildings.Ptr(i);
             if (refinery != NULL &&
-                refinery->House == House &&
+                refinery->IsActive &&
                 !refinery->IsInLimbo &&
+                refinery->House == House &&
                 *refinery == STRUCT_REFINERY) {
                     int crowflies_result = Distance(refinery);
                     if (ActiveCFEPatchConfig.EnableASPathing){
@@ -2565,7 +2567,7 @@ BuildingClass* UnitClass::Find_Best_Refinery(void) const
 	int num_harvesters = 0;
 	for (int i = 0; i < Units.Count(); ++i) {
 		UnitClass* unit = Units.Ptr(i);
-		if (unit->IsActive && unit->Class->IsToHarvest && unit->House == House) {
+		if (unit != NULL && unit->IsActive && !unit->IsInLimbo && unit->Class->IsToHarvest && unit->House == House) {
 			BuildingClass* refinery = unit->Tiberium_Unload_Refinery();
 			if (refinery != NULL) {
 				int index = _refineries.ID(RefineryData{ refinery });
