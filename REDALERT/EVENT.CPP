@@ -729,13 +729,13 @@ void EventClass::Execute(void)
 					if (((FootClass *)techno)->Team) {
 						((FootClass *)techno)->Team->Remove((FootClass *)techno);
 					}
-
+                    /* // Chthon remove attack move
 					if (Data.MegaMission.Mission == MISSION_MOVE && CFE_Patch_Should_Attack_Move(Data.MegaMission.Target, Data.MegaMission.Whom))
 					{
 						object = nullptr;
 						Data.MegaMission.Target = TargetClass(TARGET_NONE);
 						static_cast<FootClass*>(techno)->Set_Attack_Move(true);
-					}
+					}*/
 				}
 
 				if (object != NULL) {

@@ -488,6 +488,7 @@ bool FootClass::Basic_Path(void)
  *   07/18/1994 JLB : Created.                                                                 *
  *   10/02/1996 JLB : Player controlled or human owned units don't scan for targets.           *
  *=============================================================================================*/
+/* // Chthon remove attack move
 int FootClass::Mission_Move(void)
 {
 	assert(IsActive);
@@ -530,6 +531,20 @@ int FootClass::Mission_Move(void)
 			break;
 	}
 
+	return(MissionControl[Mission].Normal_Delay() + Random_Pick(0, 2));
+}*/
+int FootClass::Mission_Move(void)
+{
+	assert(IsActive);
+
+	if (!Target_Legal(NavCom) && !IsDriving && MissionQueue == MISSION_NONE) {
+		Enter_Idle_Mode();
+		return(1);
+	}
+//	if (!Target_Legal(TarCom) && !House->IsPlayerControl && !House->IsHuman) {
+	if (!Target_Legal(TarCom) && !House->IsPlayerControl && !House->IsHuman && (!Team.Is_Valid() || !Team->Class->IsSuicide)) {
+		Target_Something_Nearby(THREAT_RANGE);
+	}
 	return(MissionControl[Mission].Normal_Delay() + Random_Pick(0, 2));
 }
 

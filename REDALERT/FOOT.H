@@ -363,8 +363,9 @@ class FootClass :	public TechnoClass
 
 		virtual BuildingClass* Find_Docking_Bay(StructType b, bool friendly) const override;
 
-		void Set_Attack_Move(bool value) { IsAttackMoving = value; }
-		bool Is_Attack_Moving() const { return IsAttackMoving; }
+        // Chthon remove attack move
+		//void Set_Attack_Move(bool value) { IsAttackMoving = value; }
+		//bool Is_Attack_Moving() const { return IsAttackMoving; }
 
 		// make  public so UNIT.CPP can use it
 		int Find_Path_AStar(PathType* const resultPath, const CELL source, CELL dest, const int maxLen, const MoveType threshhold, const int threat) const;
@@ -393,12 +394,13 @@ class FootClass :	public TechnoClass
 		** I've stolen a byte of the save load padding for the attack moving flag.
 		** We are now down to 15
 		*/
-		bool IsAttackMoving : 1;
+		//bool IsAttackMoving : 1; // Chthon remove attack move
 
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[15];
+		//unsigned char SaveLoadPadding[15]; // Chthon remove attack move
+        unsigned char SaveLoadPadding[16]; 
 };
 
 #endif
