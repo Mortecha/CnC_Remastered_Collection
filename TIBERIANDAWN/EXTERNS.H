@@ -90,7 +90,8 @@ struct CFEPatchConfig
 	bool EnableAttackMove = false;
 	bool EnableCommandoGuard = false;
 	bool EnableSafeSabotage = false;
-	int  BuildingGap = 2;
+	int  InfantryTiberiumAversion = 0;
+    int  BuildingGap = 2;
 	int  HarvyQueueJumpCutoff = 4;
     int  HarvyOptimizeUnloadWaitWeight = 13;
     int  HarvyOptimizeThrashingCutoff = 5;

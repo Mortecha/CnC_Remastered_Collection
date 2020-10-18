@@ -679,8 +679,16 @@ int FootClass::Find_Path_AStar(PathType* const resultPath, const CELL source, CE
                 }
             }
             // diagonal moves cost more because Pythagoras and stuff...
-            if ((cell_cost) > 0 && ((facing == FACING_NE) || (facing == FACING_SE) || (facing == FACING_SW) || (facing == FACING_NW))){
+            if ((cell_cost > 0) && ((facing == FACING_NE) || (facing == FACING_SE) || (facing == FACING_SW) || (facing == FACING_NW))){
                 cell_cost += 0.41f;
+            }
+            // Infantry don't really want to walk through tiberium if there's a reasonable detour (except chem soldiers)
+            if (   (cell_cost > 0) &&
+                    (What_Am_I() == RTTI_INFANTRY) &&
+                    (((InfantryTypeClass const &)Class_Of()).Type != INFANTRY_E5) &&
+                    (((CellClass *)&Map[adjacent_cell_id])->Land_Type() == LAND_TIBERIUM)
+            ){
+                cell_cost += ActiveCFEPatchConfig.InfantryTiberiumAversion;
             }
             
 			if (cell_cost > 0)
