@@ -2465,7 +2465,7 @@ void TechnoClass::AI(void)
             // boats should always give up on out-of-range targets, never chase
             // because when they chase, they turn and get themselves stuck and block traffic and do other dumb things
             // except missile sub, since it tends not to shoot at all if not allowed to turn
-            if (!In_Range(TarCom) && (*(VesselClass *)this != VESSEL_MISSILESUB)) {
+            if ((!Target_Legal(TarCom) || !In_Range(TarCom)) && (*(VesselClass *)this != VESSEL_MISSILESUB)) {
                 Assign_Target(TARGET_NONE);
                 if (!AttackMoveBoatMoveLock && Target_Something_Nearby(THREAT_RANGE)){
                     AttackMoveEnterAttackMode();
