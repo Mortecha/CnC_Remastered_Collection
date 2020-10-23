@@ -1033,6 +1033,7 @@ typedef enum MissionType : char {
 	MISSION_RESCUE,
 	MISSION_MISSILE,
 	MISSION_HARMLESS,			// Sit around and don't appear like a threat.
+    MISSION_ATTACKMOVE,     // Attack Move rework by ChthonVII -- new mission type so the fact that we're attack-moving can go into the multiplayer communication queue
 
 	MISSION_COUNT,
 	MISSION_FIRST=0
@@ -1098,6 +1099,7 @@ typedef enum ActionType : unsigned char {
 	ACTION_NO_ENTER,
 	ACTION_NO_GREPAIR,
 	ACTION_TOGGLE_PRIMARY,	// Toggle the primary status of the factory.
+    ACTION_ATTACKMOVE,        //Attack Move rework by ChthonVII -- we need an action so we can go through the full click-to-mission logic properly -- bolting on stuff causes bugs (subtle and otherwise) to crop up all over 
 
 	ACTION_COUNT
 } ActionType;

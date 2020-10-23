@@ -93,6 +93,9 @@
 
 #include	"function.h"
 
+// Chthon CFE Note -- We need this for checking the shift key for attack-move
+extern bool DLL_Export_Get_Input_Key_State(KeyNumType key);
+
 
 /***********************************************************************************************
  * _Counts_As_Civ_Evac -- Is the specified object a candidate for civilian evac logic?         *
@@ -666,7 +669,7 @@ int AircraftClass::Mission_Hunt(void)
 			**	Acquiring target stage.
 			*/
 			case LOOK_FOR_TARGET:
-				if (Target_Legal(TarCom)) {
+				if (Target_Legal(TarCom) && (Ammo || !ActiveCFEPatchConfig.EnableSmarterAircraft || IsALoaner)) {
 					Status = TAKE_OFF;
 					return(1);
 				} else {
@@ -1688,6 +1691,13 @@ int AircraftClass::Mission_Move(void)
 
 			case TAKE_OFF:
 
+                // Attack Move rework by ChthonVII -- If "smarter aircraft" mode is also enabled, don't attack move if you don't have any ammo to start with
+                if (AttackMove && ActiveCFEPatchConfig.EnableSmarterAircraft && !IsALoaner && !Ammo){
+                    ResetAttackMove();
+                    Enter_Idle_Mode();
+                    return(1);
+                }
+                
 				/*
 				**	If the aircraft is high enough to begin its mission, then do so.
 				*/
@@ -1711,6 +1721,10 @@ int AircraftClass::Mission_Move(void)
 				distance = Distance(NavCom);
 
 				if (distance < 0x00C0) {
+                    // Attack Move rework by ChthonVII -- If we're reached the destination, exit attack move and go home
+                    if (AttackMove){
+                        ResetAttackMove();
+                    }
 					MissionType mission = MISSION_GUARD;
 
 					if (!IsALoaner) {
@@ -1795,7 +1809,12 @@ int AircraftClass::Mission_Move(void)
 		**	Double check and change LZ if necessary.
 		*/
 		case VALIDATE_LZ:
-			if (!Target_Legal(NavCom)) {
+			// Attack Move rework by ChthonVII -- If "smarter aircraft" mode is also enabled, don't attack move if you don't have any ammo to start with
+            if (AttackMove && ActiveCFEPatchConfig.EnableSmarterAircraft && !IsALoaner && !Ammo){
+                ResetAttackMove();
+                Enter_Idle_Mode();
+            }
+			else if (!Target_Legal(NavCom)) {
 				Enter_Idle_Mode();
 			} else {
 				if (!Is_LZ_Clear(NavCom) || !Cell_Seems_Ok(As_Cell(NavCom))) {
@@ -1840,6 +1859,14 @@ int AircraftClass::Mission_Move(void)
 				int distance = Process_Fly_To(true, NavCom);
 
 				if (distance < 0x0080) {
+                    // Attack Move rework by ChthonVII -- helicopters should go home at the end of an attack-move rather than landing
+                    if (AttackMove){
+                        Assign_Target(TARGET_NONE);
+                        Assign_Destination(TARGET_NONE);
+                        ResetAttackMove();
+                        Enter_Idle_Mode();
+                        return(1);
+                    }
 					if (Target_Legal(TarCom)) {
 						SecondaryFacing.Set_Desired(Direction(TarCom));
 					} else {
@@ -1912,6 +1939,17 @@ void AircraftClass::Enter_Idle_Mode(bool )
 {
 	assert(Aircraft.ID(this) == ID);
 	assert(IsActive);
+    
+    // Attack Move rework by ChthonVII -- If we would go idle, but we still have ammo, continue on towards destination instead
+    if (AttackMove){
+       if (Ammo){
+            AttackMoveEnterMoveMode();
+            return;
+        }
+        else {
+            ResetAttackMove();
+        }
+    }
 
 	MissionType mission = (Class->IsFixedWing && IsALoaner && Class->PrimaryWeapon != NULL) ? MISSION_HUNT : MISSION_GUARD;
 	if (Class->IsFixedWing) {
@@ -2329,7 +2367,13 @@ ActionType AircraftClass::What_Action(ObjectClass const * target) const
 #endif
 
 	if (Class->IsFixedWing && action == ACTION_MOVE) {
-		action = ACTION_NOMOVE;
+        // Attack Move rework by ChthonVII -- we need this here so fixed wing planes can attack-move
+        if (ActiveCFEPatchConfig.EnableAttackMove && Is_Owned_By_Player() && Techno_Type_Class()->PrimaryWeapon != NULL && DLL_Export_Get_Input_Key_State(KN_LSHIFT)){
+            action = ACTION_ATTACKMOVE;
+        }
+        else{
+            action = ACTION_NOMOVE;
+        }
 	}
 
 	if (action == ACTION_NONE) {
@@ -2375,7 +2419,8 @@ ActionType AircraftClass::What_Action(CELL cell) const
 	ActionType action = FootClass::What_Action(cell);
 
 	//using function for IsVisible so we have different results for different players - JAS 2019/09/30
-	if ((action == ACTION_MOVE || action == ACTION_ATTACK) && !Map[cell].Is_Visible(PlayerPtr)) {
+	// Attack Move rework by ChthonVII -- If you can't move aircraft into gap-covered cells, attack-move shouldn't work either
+    if ((action == ACTION_MOVE || action == ACTION_ATTACK || action == ACTION_ATTACKMOVE) && !Map[cell].Is_Visible(PlayerPtr)) {
 		action = ACTION_NOMOVE;
 	}
 
@@ -2384,7 +2429,13 @@ ActionType AircraftClass::What_Action(CELL cell) const
 	}
 
 	if (Class->IsFixedWing && action == ACTION_MOVE) {
-		action = ACTION_NOMOVE;
+        // Attack Move rework by ChthonVII -- we need this here so fixed wing planes can attack-move
+        if (ActiveCFEPatchConfig.EnableAttackMove && Is_Owned_By_Player() && Techno_Type_Class()->PrimaryWeapon != NULL && DLL_Export_Get_Input_Key_State(KN_LSHIFT)){
+            action = ACTION_ATTACKMOVE;
+        }
+        else {
+            action = ACTION_NOMOVE;
+        }
 	}
 
 	return(action);
@@ -2462,7 +2513,7 @@ int AircraftClass::Mission_Attack(void)
 		**	Double check target and validate the attack zone.
 		*/
 		case VALIDATE_AZ:
-			if (!Target_Legal(TarCom) || !Ammo) {
+			if (!Target_Legal(TarCom) ||  (ActiveCFEPatchConfig.EnableSmarterAircraft && !IsALoaner && !Ammo)) {
 				Status = RETURN_TO_BASE;
 			} else {
 				Status = PICK_ATTACK_LOCATION;
@@ -2638,6 +2689,7 @@ int AircraftClass::Mission_Attack(void)
 			**	point in attacking it this mission. The player will
 			**	reassign a target for the next mission.
 			*/
+            
 			if (!Ammo && (IsALoaner || House->IsHuman)) {
 				Assign_Target(TARGET_NONE);
 			}

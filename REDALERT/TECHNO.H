@@ -243,10 +243,27 @@ class TechnoClass :	public RadioClass,
 		*/
 		unsigned int IsDiscoveredByPlayerMask;
 
+        // Attack Move rework by ChthonVII --  Remember the intial destination in case of appearing enemies during an attack move
+		mutable TARGET RememberedNavCom;
+        // Converted most attack-move variables into bit fields to save space, but then ended up removing most of them during attack-move rework
+        // Keep the bitfield arrangment anyway so we can use the space for future mod features.
+		// We need the anonymous union & struct so we can force the zero initialization.
+		// Compatibility note: MSVC is happy with this, but apparently gcc needs extensions for it.
+        // mutable makes them modifiable from inside const functions (the inability to do this greatly complicated Butch's attack move implementation)
+        union{
+			mutable unsigned char CFEPatchFlags = 0;
+			struct{
+				mutable unsigned int AttackMove : 1;
+				mutable unsigned int CFEPatchFlagsPadding : 7; //round out to 1 byte, we can use this space later.
+			};
+		};
+        mutable unsigned char AttackMoveBoatClock = 0; //There is a real-deal timer class available, but I don't want to spend that many bytes for boats.
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[16];
+        // Chthon CFE Note: Original padding was 16
+        // Attack Move rework by ChthonVII eats 6 bytes
+		unsigned char SaveLoadPadding[10];
 
 
 		/*---------------------------------------------------------------------
@@ -416,6 +433,11 @@ class TechnoClass :	public RadioClass,
 		**	it renders 45 degree angles.
 		*/
 		static int const BodyShape[32];
+        
+        // Attack Move rework by ChthonVII -- Reset Attack Move parameters, ending attack-move status.
+		void ResetAttackMove();
+        void AttackMoveEnterMoveMode();
+        void AttackMoveEnterAttackMode();
 };
 
 #endif

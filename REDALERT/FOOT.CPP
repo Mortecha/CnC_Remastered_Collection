@@ -493,6 +493,8 @@ int FootClass::Mission_Move(void)
 	assert(IsActive);
 
 	if (!Target_Legal(NavCom) && !IsDriving && MissionQueue == MISSION_NONE) {
+        // Attack Move rework by ChthonVII -- Destination reached, snap out of attack mode
+		ResetAttackMove();
 		Enter_Idle_Mode();
 		return(1);
 	}
@@ -564,7 +566,14 @@ int FootClass::Mission_Attack(void)
 	if (Target_Legal(TarCom)) {
 		Approach_Target();
 	} else {
-		Enter_Idle_Mode();
+        // Attack Move rework by ChthonVII -- If we're in the middle of an attack-move, then go back to moving instead of going idle
+        if (AttackMove){
+            AttackMoveEnterMoveMode();
+            return(1);
+        }
+        else{
+            Enter_Idle_Mode();
+        }
 	}
 	return(MissionControl[Mission].Normal_Delay() + Random_Pick(0, 2));
 }
@@ -1266,6 +1275,7 @@ void FootClass::Active_Click_With(ActionType action, ObjectClass * object)
 			break;
 
 		case ACTION_NOMOVE:
+        case ACTION_ATTACKMOVE: // Attack Move rework by ChthonVII -- fall through into ACTION_MOVE case
 		case ACTION_MOVE:
 			if (Can_Player_Move()) {
 
@@ -1286,7 +1296,13 @@ void FootClass::Active_Click_With(ActionType action, ObjectClass * object)
 #endif
 				}
 
-				Player_Assign_Mission(MISSION_MOVE, TARGET_NONE, targ);
+				// Attack Move rework by ChthonVII -- pass on attack-move if appropriate
+				if (action == ACTION_ATTACKMOVE){
+                    Player_Assign_Mission(MISSION_ATTACKMOVE, TARGET_NONE, targ);
+                }
+                else {
+                    Player_Assign_Mission(MISSION_MOVE, TARGET_NONE, targ);
+                }
 			}
 			break;
 
@@ -1326,7 +1342,8 @@ void FootClass::Active_Click_With(ActionType action, CELL cell)
 		case ACTION_HARVEST:
 			Player_Assign_Mission(MISSION_HARVEST, TARGET_NONE, ::As_Target(cell));
 			break;
-
+        
+        case ACTION_ATTACKMOVE: // Attack Move rework by ChthonVII -- fall through into ACTION_MOVE case
 		case ACTION_MOVE:
 			if (AllowVoice) {
 				COORDINATE coord = Map.Pixel_To_Coord(Get_Mouse_X(), Get_Mouse_Y());
@@ -1359,7 +1376,13 @@ void FootClass::Active_Click_With(ActionType action, CELL cell)
 #endif
 				}
 
-				Player_Assign_Mission(MISSION_MOVE, TARGET_NONE, ::As_Target(cell));
+				// Attack Move rework by ChthonVII -- pass on attack-move if appropriate
+				if (action == ACTION_ATTACKMOVE){
+                    Player_Assign_Mission(MISSION_ATTACKMOVE, TARGET_NONE, ::As_Target(cell));
+                }
+				else {
+                    Player_Assign_Mission(MISSION_MOVE, TARGET_NONE, ::As_Target(cell));
+                }
 			}
 			break;
 

@@ -749,7 +749,23 @@ void EventClass::Execute(void)
 				*/
 				bool q = (Data.MegaMission.Mission == MISSION_QMOVE);
 
-				techno->Assign_Mission(Data.MegaMission.Mission);
+                // Attack Move rework by ChthonVII -- now that we are on the back side of the multiplayer communications, swap MISSION_ATTACKMOVE back to MISSION_MOVE and set flag and target
+                if (ActiveCFEPatchConfig.EnableAttackMove){
+                    if (Data.MegaMission.Mission == MISSION_ATTACKMOVE){
+                        techno->Assign_Mission(MISSION_MOVE);
+                        techno->AttackMove = 1;
+                        techno->RememberedNavCom = Data.MegaMission.Destination.As_TARGET();
+                    }
+                    // if we assigned any other mission, terminate attack-move
+                    else {
+                        techno->Assign_Mission(Data.MegaMission.Mission);
+                        techno->ResetAttackMove();
+                    }
+                }
+                // original code
+                else {
+                    techno->Assign_Mission(Data.MegaMission.Mission);
+                }
 
 				if (techno->Is_Foot()) {
 					((FootClass*)techno)->SuspendedNavCom = TARGET_NONE;
@@ -842,6 +858,10 @@ void EventClass::Execute(void)
 			else if (techno && CFE_Patch_Can_Have_Rally_Point(*techno)) {
 				techno->Assign_Target(TARGET_NONE);
 			}
+			// Attack Move rework by ChthonVII -- exit attack-move because we got a new order
+            if (techno && ActiveCFEPatchConfig.EnableAttackMove){
+                techno->ResetAttackMove();
+            }
 			break;
 
 		/*
@@ -852,6 +872,10 @@ void EventClass::Execute(void)
 			if (techno != NULL && techno->Is_Foot() && techno->IsActive && !techno->IsInLimbo && !techno->IsTethered) {
 				((FootClass *)techno)->IsScattering = true;
 				techno->Scatter(0, true, false);
+                // Attack Move rework by ChthonVII -- exit attack-move because we got a new order
+                if (ActiveCFEPatchConfig.EnableAttackMove){
+                    techno->ResetAttackMove();
+                }
 			}
 			break;
 

@@ -106,6 +106,8 @@ extern void Logic_Switch_Player_Context(HouseClass *object);
 extern void On_Special_Weapon_Targetting(const HouseClass* player_ptr, SpecialWeaponType weapon_type);
 extern bool Is_Legacy_Render_Enabled(void);
 
+// Chthon CFE Note -- We need this for checking the shift key for attack-move
+extern bool DLL_Export_Get_Input_Key_State(KeyNumType key);
 
 static int _GapShroudXTable[]={
 		-1, 0, 1,
@@ -1284,7 +1286,7 @@ void UnitClass::Active_Click_With(ActionType action, ObjectClass * object)
 				break;
 
 			case ACTION_ENTER:
-				action = ACTION_MOVE;
+				action = ACTION_MOVE; //Chthon CFE Note: If we wanted "do attack-move on the way to the repair bay," we'd need to do something here
 				break;
 
 			default:
@@ -3739,6 +3741,11 @@ ActionType UnitClass::What_Action(ObjectClass const * object) const
 	*/
 	if (action == ACTION_NONE) action = ACTION_NOMOVE;
 
+    // Attack Move rework by ChthonVII -- we need this here so that we can attack-move to cells that the UnitClass-level makes movable (e.g., landmines) 
+    if (ActiveCFEPatchConfig.EnableAttackMove && action == ACTION_MOVE && Is_Owned_By_Player() && Techno_Type_Class()->PrimaryWeapon != NULL && DLL_Export_Get_Input_Key_State(KN_LSHIFT)){
+        action = ACTION_ATTACKMOVE;
+    }
+    
 	return(action);
 }
 

@@ -132,6 +132,7 @@
 
 #include	"function.h"
 
+#include "CFEDEBUG.H"
 
 /***************************************************************************
 **	Cloaking control values.
@@ -2441,6 +2442,79 @@ void TechnoClass::AI(void)
 {
 	assert(IsActive);
 
+    // Attack Move rework by ChthonVII
+    if (AttackMove && Is_Owned_By_Player() && (What_Am_I() == RTTI_UNIT || What_Am_I() == RTTI_INFANTRY || What_Am_I() == RTTI_AIRCRAFT || What_Am_I() == RTTI_VESSEL)) {
+    
+        // special control for boats
+        // after shooting for awhile, force a return to moving and don't let them shoot again for awhile
+        // otherwise they tend to get stuck going after things they just can't get an angle to hit
+        // (except subs, since they can't do "drive-by" shooting like the others)
+        bool AttackMoveBoatMoveLock = false;
+        if (What_Am_I() == RTTI_VESSEL && (*(VesselClass *)this != VESSEL_SS)){
+            
+            if (AttackMoveBoatClock > 0){
+                AttackMoveBoatClock--;
+                if (AttackMoveBoatClock > 0 && AttackMoveBoatClock < 91){
+                    AttackMoveBoatMoveLock = true;
+                    if (Mission != MISSION_MOVE){
+                        AttackMoveEnterMoveMode();
+                    }
+                }
+            }
+            
+            // boats should always give up on out-of-range targets, never chase
+            // because when they chase, they turn and get themselves stuck and block traffic and do other dumb things
+            // except missile sub, since it tends not to shoot at all if not allowed to turn
+            if (!In_Range(TarCom) && (*(VesselClass *)this != VESSEL_MISSILESUB)) {
+                Assign_Target(TARGET_NONE);
+                if (!AttackMoveBoatMoveLock && Target_Something_Nearby(THREAT_RANGE)){
+                    AttackMoveEnterAttackMode();
+                }
+                else {
+                    AttackMoveEnterMoveMode();
+                }
+            }
+        }
+        
+        // special case
+        // forget our target if (1) it's out of range, (2) it's not in our zone (contiguous patch of land/water), and (3) we're not an aircraft, so we can't chase it
+        // (copy/pasta from below)
+        if (What_Am_I() != RTTI_AIRCRAFT && Target_Legal(TarCom) && !Is_In_Same_Zone(As_Cell(TarCom))) {
+            int primary = What_Weapon_Should_I_Use(TarCom);
+            if (!In_Range(TarCom, primary)) {
+                Assign_Target(TARGET_NONE);
+                if (!AttackMoveBoatMoveLock && Target_Something_Nearby(THREAT_RANGE)){
+                    AttackMoveEnterAttackMode();
+                }
+                else {
+                    AttackMoveEnterMoveMode();
+                }
+            }
+        }
+        
+        // If something is already targeted, but not in range, try for a closer target
+        // But not for  dogs, b/c Butch says, "Dogs are messy when it comes to their range, therefore they will just keep hunting what they targeted first. Seems fitting, it's a dog after all, not Sherlock Holmes"
+        // And not for aircraft because the result of a constantly retargetting aircraft is disasterous (if comical)
+        if (Target_Legal(TarCom) && !(What_Am_I() == RTTI_INFANTRY && ((InfantryClass*)this)->Class->IsDog) && !(What_Am_I() == RTTI_AIRCRAFT) && !AttackMoveBoatMoveLock) {
+            // remember our current target
+            TARGET oldtarcom = TarCom;
+            // Target_Something_Nearby() picks a nearby target, potentially dumping the current target if it's out of range, sets TarCom, then returns Target_Legal(TarCom)
+            if (Target_Something_Nearby(THREAT_RANGE)){ 
+                if (TarCom != oldtarcom){
+                    AttackMoveEnterAttackMode();
+                }
+            }
+        }
+        // If we didn't have a target to begin with, look for one            
+        if (!Target_Legal(TarCom) && !AttackMoveBoatMoveLock){
+            if (Target_Something_Nearby(THREAT_RANGE)){
+                AttackMoveEnterAttackMode();
+            }
+        }
+        // Later, when the target dies, Mission_Attack() will snap us back to MISSION_MOVE
+        
+    } // end of AttackMove stuff
+    
 	/*
 	**	Handle recoil recovery here.
 	*/
@@ -3417,7 +3491,7 @@ BulletClass * TechnoClass::Fire_At(TARGET target, int which)
 void TechnoClass::Player_Assign_Mission(MissionType mission, TARGET target, TARGET destination)
 {
 	assert(IsActive);
-
+    
 	if (AllowVoice) {
 		if (mission == MISSION_ATTACK) {
 			Response_Attack();
@@ -3521,7 +3595,13 @@ ActionType TechnoClass::What_Action(ObjectClass const * object) const
 		*/
 		if (altdown) {
 			if (House->IsPlayerControl && Can_Player_Move()) {
-				return(ACTION_MOVE);
+                // Attack Move rework by ChthonVII -- Attack-move and crush
+                if (ActiveCFEPatchConfig.EnableAttackMove && Techno_Type_Class()->PrimaryWeapon != NULL && shiftdown){
+                    return(ACTION_ATTACKMOVE);
+                }
+                else {
+                    return(ACTION_MOVE);
+                }
 			}
 		}
 
@@ -3647,7 +3727,7 @@ ActionType TechnoClass::What_Action(CELL cell) const
 	if (cellptr->Overlay != OVERLAY_NONE) {
 		optr = &OverlayTypeClass::As_Reference(cellptr->Overlay);
 	}
-
+	
 	/*
 	**	Special guard area mission is possible if both the control and the
 	**	alt keys are held down.
@@ -3675,7 +3755,13 @@ ActionType TechnoClass::What_Action(CELL cell) const
 		**	Special override to force a move regardless of what is occupying the location.
 		*/
 		if (shiftdown) {
-			return(ACTION_MOVE);
+            // Attack Move rework by ChthonVII -- hijack this for attack-move. This should be the main way attack-move input is picked up.
+            if (ActiveCFEPatchConfig.EnableAttackMove && Techno_Type_Class()->PrimaryWeapon != NULL){
+                return(ACTION_ATTACKMOVE);
+            }
+            else {
+                return(ACTION_MOVE);
+            }
 		}
 
 		/*
@@ -3974,7 +4060,7 @@ bool TechnoClass::Captured(HouseClass * newowner)
 		**	Remove from targeting computers.
 		*/
 		Detach_All(false);
-
+        
 		/*
 		**	Change ownership now.
 		*/
@@ -6969,4 +7055,42 @@ bool TechnoClass::Is_Owned_By_Player(HouseClass *player) const
 unsigned TechnoClass::Spied_By() const
 {
 	return SpiedBy;
+}
+
+// Attack Move rework by ChthonVII
+void TechnoClass::ResetAttackMove()
+{
+	RememberedNavCom = TARGET_NONE; //0
+	AttackMove = 0;
+    AttackMoveBoatClock = 0;
+}
+
+void TechnoClass::AttackMoveEnterMoveMode(){
+    
+    // If we somehow lost the destination, abort attack move
+    if (!RememberedNavCom){
+        ResetAttackMove();
+        Enter_Idle_Mode();
+        return;
+    }
+    
+    if (What_Am_I() == RTTI_INFANTRYTYPE){
+        ((FootClass*)this)->Stop_Driver(); // Butch had this for infantry only, it seems to be causing problems for other unit types
+    }
+    Assign_Destination(RememberedNavCom);
+    Assign_Mission(MISSION_MOVE); //Set_Mission() is bad because it makes Commence() not work, and then we end up with units in impossible mission/status combinations
+    Commence();
+}
+
+void TechnoClass::AttackMoveEnterAttackMode(){
+    Assign_Destination(TARGET_NONE);
+    if (What_Am_I() == RTTI_INFANTRYTYPE){
+        ((FootClass*)this)->Stop_Driver(); // Butch had this for infantry only, it seems to be causing problems for other unit types
+    }
+    //((FootClass*)this)->Approach_Target(); // MissionAttack() will do this
+    Assign_Mission(MISSION_ATTACK); //Set_Mission() is bad because it makes Commence() not work, and then we end up with units in impossible mission/status combinations
+    Commence();
+    if (What_Am_I() == RTTI_VESSEL){
+        AttackMoveBoatClock = 180;
+    }
 }

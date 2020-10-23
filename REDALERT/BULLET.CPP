@@ -144,6 +144,10 @@ BulletClass::~BulletClass(void)
 						newcoord = Adjacent_Cell(Coord, FacingType(i));
 					}
 					ScenarioInit++;
+                    // Attack Move rework by ChthonVII -- dog is going to Enter_Idle_Mode(), and thus fall out of attack-move, when it unlimbos.
+                    // So we need to save that info now
+                    unsigned int resumeattackmove = dog->AttackMove;
+                    TARGET resumerememberednavcom = dog->RememberedNavCom;
 					if (dog->Unlimbo(newcoord, dog->PrimaryFacing)) {
 						dog->Mark(MARK_DOWN);
 						dog->Do_Action(DO_DOG_MAUL, true);
@@ -153,6 +157,12 @@ BulletClass::~BulletClass(void)
 						ScenarioInit--;
 
 						unlimbo = true;
+                        // Attack Move rework by ChthonVII -- restore dog back into attack-move state
+                        if (resumeattackmove){
+                            dog->AttackMove = 1;
+                            dog->RememberedNavCom = resumerememberednavcom;
+                            dog->AttackMoveEnterMoveMode();
+                        }
 						break;
 					}
 					ScenarioInit--;

@@ -4838,6 +4838,7 @@ void DLLExportClass::Convert_Action_Type(ActionType type, ObjectClass* object, T
 		default:
 			dll_type = DAT_NONE;
 			break;
+        case ACTION_ATTACKMOVE: // Attack Move rework by ChthonVII -- fall through to ACTION_MOVE
 		case ACTION_MOVE:
 			dll_type = DAT_MOVE;
 			break;

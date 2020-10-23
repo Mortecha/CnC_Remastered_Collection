@@ -3677,6 +3677,7 @@ void DisplayClass::Mouse_Left_Up(CELL cell, bool shadow, ObjectClass * object, A
 				Set_Default_Mouse(MOUSE_CAN_SELECT, wsmall);
 				break;
 
+            case ACTION_ATTACKMOVE:  // Attack Move rework by ChthonVII -- fall through to ACTION_MOVE and use the same cursor
 			case ACTION_MOVE:
 				Set_Default_Mouse(MOUSE_CAN_MOVE, wsmall);
 				break;
@@ -3875,7 +3876,8 @@ void DisplayClass::Mouse_Left_Up(CELL cell, bool shadow, ObjectClass * object, A
  *=============================================================================================*/
 void DisplayClass::Mouse_Left_Release(CELL cell, int x, int y, ObjectClass * object, ActionType action, bool wsmall)
 {
-	if (PendingObjectPtr) {
+    
+    if (PendingObjectPtr) {
 		/*
 		**	Try to place the pending object onto the map.
 		*/
@@ -3945,7 +3947,8 @@ void DisplayClass::Mouse_Left_Release(CELL cell, int x, int y, ObjectClass * obj
 				FormSpeed = SPEED_WHEEL;
 				FormMaxSpeed = MPH_LIGHT_SPEED;
 
-				if ( (action == ACTION_MOVE || action == ACTION_NOMOVE) && CurrentObject.Count()) {
+                // Attack Move rework by ChthonVII -- do formation checks for attack-move too
+				if ( (action == ACTION_MOVE || action == ACTION_NOMOVE || action == ACTION_ATTACKMOVE) && CurrentObject.Count()) {
 
 					/*
 					** Scan all units.  If any are selected that shouldn't be, or aren't
@@ -4045,7 +4048,7 @@ void DisplayClass::Mouse_Left_Release(CELL cell, int x, int y, ObjectClass * obj
 
 				for (int index = 0; index < CurrentObject.Count(); index++) {
 					ObjectClass * tobject = CurrentObject[index];
-
+                    
 					if (object != NULL) {
 						tobject->Active_Click_With(tobject->What_Action(object), object);
 					} else {
@@ -4058,7 +4061,7 @@ void DisplayClass::Mouse_Left_Release(CELL cell, int x, int y, ObjectClass * obj
 						*/
 						CELL newmove = cell;
 						int whatami = tobject->What_Am_I();
-						if (action == ACTION_MOVE && tobject->Is_Foot()) {
+						if ((action == ACTION_MOVE || action == ACTION_ATTACKMOVE) && tobject->Is_Foot()) {  // Attack Move rework by ChthonVII -- treat attack_move as move for formation purposes
 							int oldisform;
 							FootClass * foot = (FootClass *)tobject;
 							oldisform = foot->IsFormationMove;
@@ -5045,7 +5048,8 @@ static ActionType _priority_actions[] = {
 	ACTION_REPAIR,
 	ACTION_SABOTAGE,
 	ACTION_CAPTURE,
-	ACTION_MOVE
+	ACTION_MOVE,
+    ACTION_ATTACKMOVE  // Attack Move rework by ChthonVII -- probably needs to be in this array. If we wanted to get fancy we could put it above ACTION_MOVE and make a special cursor for it.
 };
 
 static int get_action_priority(ActionType action)

@@ -64,6 +64,8 @@
 
 #include "function.h"
 
+// Chthon CFE Note -- We need this for checking the shift key for attack-move
+extern bool DLL_Export_Get_Input_Key_State(KeyNumType key);
 
 /***********************************************************************************************
  * VesselClass::VesselClass -- Constructor for vessel class objects.                           *
@@ -857,7 +859,7 @@ void VesselClass::Active_Click_With(ActionType action, ObjectClass * object)
 		action = What_Action(object);
 		switch (action) {
 			case ACTION_ENTER:
-				action = ACTION_MOVE;
+				action = ACTION_MOVE; //Chthon CFE Note: If we wanted "do attack-move on the way to the repair bay," we'd need to do something here
 				// BRR 10/18/96 IsToSelfRepair = true;
 				break;
 
@@ -1301,6 +1303,16 @@ TARGET VesselClass::Greatest_Threat(ThreatType threat) const
 		if (*this == VESSEL_CA) {
 			threat = (ThreatType) (threat & (~THREAT_INFANTRY));
 		}
+		
+        //Attack Move rework by ChthonVII -- If we're doing attack-move we probably want to hit buildings
+        if (AttackMove && (*this !=  VESSEL_SS)){
+            threat = threat | THREAT_BUILDINGS;
+            // But don't let cruisers try to hit padless idling helicopters as they bounce up and down -- it won't work
+            if (*this == VESSEL_CA) {
+                threat = (ThreatType) (threat & (~THREAT_AIR));
+            }
+        }
+	
 	}
 #ifdef FIXIT_CARRIER	//	checked - ajw 9/28/98
 	if (*this == VESSEL_CARRIER) {
@@ -2235,6 +2247,12 @@ ActionType VesselClass::What_Action(CELL cell) const
 	if (action == ACTION_NOMOVE && Class->PrimaryWeapon != NULL && Class->PrimaryWeapon->Bullet->IsSubSurface && Map[cell].Is_Bridge_Here()) {
 		return(ACTION_ATTACK);
 	}
+	
+    // Attack Move rework by ChthonVII -- we need this here so that we can attack-move to cells that the VesselClass-level makes movable (e.g., beaches) 
+    if (ActiveCFEPatchConfig.EnableAttackMove && action == ACTION_MOVE && Is_Owned_By_Player() && Techno_Type_Class()->PrimaryWeapon != NULL && DLL_Export_Get_Input_Key_State(KN_LSHIFT)){
+        action = ACTION_ATTACKMOVE;
+    }
+	
 	return(action);
 }
 
