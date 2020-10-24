@@ -279,7 +279,7 @@ class FootClass :	public TechnoClass
 
 		virtual BuildingClass* Find_Docking_Bay(StructType b, bool friendly) const override;
 		
-		// make  public so UNIT.CPP can use it
+		// Chthon CFE Note: make  public so harvester optimizations and queue jumping can use it
 		int Find_Path_AStar(PathType* const resultPath, const CELL source, CELL dest, const int maxLen, const MoveType threshhold, const int threat) const;
 	private:
 		int Passable_Cell(CELL cell, FacingType face, int threat, MoveType threshhold) const;

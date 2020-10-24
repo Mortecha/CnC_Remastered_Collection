@@ -1884,6 +1884,31 @@ void TechnoClass::AI(void)
 	RadioClass::AI();
 	DoorClass::AI();
 
+    // Attack Move rework by ChthonVII
+    if (AttackMove && Is_Owned_By_Player() && (What_Am_I() == RTTI_UNIT || What_Am_I() == RTTI_INFANTRY || What_Am_I() == RTTI_AIRCRAFT)) {
+
+        // If something is already targeted, but not in range, try for a closer target
+        // But not for aircraft because the result of a constantly retargetting aircraft is disasterous (if comical)
+        if (Target_Legal(TarCom) && (What_Am_I() != RTTI_AIRCRAFT)) {
+            // remember our current target
+            TARGET oldtarcom = TarCom;
+            // Target_Something_Nearby() picks a nearby target, potentially dumping the current target if it's out of range, sets TarCom, then returns Target_Legal(TarCom)
+            if (Target_Something_Nearby(THREAT_RANGE)){ 
+                if (TarCom != oldtarcom){
+                    AttackMoveEnterAttackMode();
+                }
+            }
+        }
+        // If we didn't have a target to begin with, look for one            
+        if (!Target_Legal(TarCom)){
+            if (Target_Something_Nearby(THREAT_RANGE)){
+                AttackMoveEnterAttackMode();
+            }
+        }
+        // Later, when the target dies, Mission_Attack() will snap us back to MISSION_MOVE
+
+    } // end of AttackMove stuff
+    
 	/*
 	** Handle decision to re-cloak here. Process the cloaking/decloaking operation.
 	*/
@@ -2573,7 +2598,13 @@ ActionType TechnoClass::What_Action(ObjectClass * object) const
 			// Changed for multiplayer. ST - 3/13/2019 5:52PM
 			if (Is_Owned_By_Player() && Can_Player_Move()) {
 			//if (IsOwnedByPlayer && Can_Player_Move()) {
-				return(ACTION_MOVE);
+                // Attack Move rework by ChthonVII -- Attack-move and crush
+                if (ActiveCFEPatchConfig.EnableAttackMove && Techno_Type_Class()->Primary != WEAPON_NONE && shiftdown){
+                    return(ACTION_ATTACKMOVE);
+                }
+                else {
+                    return(ACTION_MOVE);
+                }
 			}
 		}
 
@@ -2701,7 +2732,13 @@ ActionType TechnoClass::What_Action(CELL cell) const
 		**	Special override to force a move regardless of what is occupying the location.
 		*/
 		if (shiftdown) {
-			return(ACTION_MOVE);
+            // Attack Move rework by ChthonVII -- hijack this for attack-move. This should be the main way attack-move input is picked up.
+            if (ActiveCFEPatchConfig.EnableAttackMove && Techno_Type_Class()->Primary != WEAPON_NONE){
+                return(ACTION_ATTACKMOVE);
+            }
+            else {
+                return(ACTION_MOVE);
+            }
 		}
 
 		/*
@@ -4824,3 +4861,37 @@ int TechnoTypeClass::Legal_Placement(CELL pos) const
 	return(1);
 }
 #endif //USE_RA_AI
+
+// Attack Move rework by ChthonVII
+void TechnoClass::ResetAttackMove()
+{
+	RememberedNavCom = TARGET_NONE; //0
+	AttackMove = 0;
+}
+
+void TechnoClass::AttackMoveEnterMoveMode(){
+
+    // If we somehow lost the destination, abort attack move
+    if (!RememberedNavCom){
+        ResetAttackMove();
+        Enter_Idle_Mode();
+        return;
+    }
+
+    if (What_Am_I() == RTTI_INFANTRYTYPE){
+        ((FootClass*)this)->Stop_Driver(); // Butch had this for infantry only, it seems to be causing problems for other unit types
+    }
+    Assign_Destination(RememberedNavCom);
+    Assign_Mission(MISSION_MOVE); //Set_Mission() is bad because it makes Commence() not work, and then we end up with units in impossible mission/status combinations
+    Commence();
+}
+
+void TechnoClass::AttackMoveEnterAttackMode(){
+    Assign_Destination(TARGET_NONE);
+    if (What_Am_I() == RTTI_INFANTRYTYPE){
+        ((FootClass*)this)->Stop_Driver(); // Butch had this for infantry only, it seems to be causing problems for other unit types
+    }
+    //((FootClass*)this)->Approach_Target(); // MissionAttack() will do this
+    Assign_Mission(MISSION_ATTACK); //Set_Mission() is bad because it makes Commence() not work, and then we end up with units in impossible mission/status combinations
+    Commence();
+}

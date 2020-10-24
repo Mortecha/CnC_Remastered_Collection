@@ -96,6 +96,9 @@
 #include	"function.h"
 //#include "CFEDEBUG.H"
 
+// Chthon CFE Note -- We need this for checking the shift key for attack-move
+extern bool DLL_Export_Get_Input_Key_State(KeyNumType key);
+
 /*
 ** This contains the value of the Virtual Function Table Pointer
 */
@@ -1290,7 +1293,7 @@ void UnitClass::Active_Click_With(ActionType action, ObjectClass * object)
 				break;
 
 			case ACTION_ENTER:
-				action = ACTION_MOVE;
+				action = ACTION_MOVE; //Chthon CFE Note: If we wanted "do attack-move on the way to the repair bay," we'd need to do something here
 				break;
 
 			default:
@@ -4000,6 +4003,11 @@ ActionType UnitClass::What_Action(ObjectClass * object) const
 		}
 	}
 
+    // Attack Move rework by ChthonVII -- we need this here so that we can attack-move to cells that the UnitClass-level makes movable (e.g., crushing) 
+    if (ActiveCFEPatchConfig.EnableAttackMove && action == ACTION_MOVE && Is_Owned_By_Player() && Techno_Type_Class()->Primary != WEAPON_NONE && DLL_Export_Get_Input_Key_State(KN_LSHIFT)){
+        action = ACTION_ATTACKMOVE;
+    }
+	
 	return(action);
 }
 

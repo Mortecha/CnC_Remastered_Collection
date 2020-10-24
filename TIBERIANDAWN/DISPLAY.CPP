@@ -3571,6 +3571,7 @@ void DisplayClass::Mouse_Left_Up(bool shadow, ObjectClass * object, ActionType a
 				Set_Default_Mouse(MOUSE_AIR_STRIKE, wwsmall);
 				break;
 
+            case ACTION_ATTACKMOVE:  // Attack Move rework by ChthonVII -- fall through to next case and use same cursor
 			case ACTION_NOMOVE:
 				if (CurrentObject.Count()) {
 					MouseType mouse_type = MOUSE_NO_MOVE;
@@ -3602,6 +3603,7 @@ void DisplayClass::Mouse_Left_Up(bool shadow, ObjectClass * object, ActionType a
 				Set_Default_Mouse(MOUSE_CAN_SELECT, wwsmall);
 				break;
 
+            case ACTION_ATTACKMOVE:  // Attack Move rework by ChthonVII -- fall through to ACTION_MOVE and use the same cursor
 			case ACTION_MOVE:
 				Set_Default_Mouse(MOUSE_CAN_MOVE, wwsmall);
 				break;
@@ -4305,7 +4307,8 @@ static ActionType _priority_actions[] = {
 	ACTION_REPAIR,
 	ACTION_SABOTAGE,
 	ACTION_CAPTURE,
-	ACTION_MOVE
+	ACTION_MOVE,
+    ACTION_ATTACKMOVE  // Attack Move rework by ChthonVII -- probably needs to be in this array. If we wanted to get fancy we could put it above ACTION_MOVE and make a special cursor for it.
 };
 
 static int get_action_priority(ActionType action)

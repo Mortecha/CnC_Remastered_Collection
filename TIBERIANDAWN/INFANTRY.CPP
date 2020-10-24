@@ -1912,6 +1912,11 @@ void InfantryClass::Enter_Idle_Mode(bool )
 			}
 		}
 	}
+	if (order == MISSION_GUARD) {
+		// Attack Move rework by ChthonVII --  As Infantry does GUARD at the end, the Mission_Move method where usually the reset starts is never called
+		// therefore this hack
+		ResetAttackMove();
+	}
 	Assign_Mission(order);
 }
 
@@ -2535,6 +2540,7 @@ TARGET InfantryClass::Greatest_Threat(ThreatType threat) const
 			}
 			return(TechnoClass::Greatest_Threat(threat | THREAT_INFANTRY|THREAT_BUILDINGS));
 	}
+	// Chthon CFE Note: In RA we needed to add something to make infantry attack buildings in attack-move mode, but that doesn't seem to be needed here.
 	return(FootClass::Greatest_Threat(threat));
 }
 

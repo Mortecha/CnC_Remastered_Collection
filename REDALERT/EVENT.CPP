@@ -846,7 +846,11 @@ void EventClass::Execute(void)
 		*/
 		case IDLE:
 			techno = Data.Target.Whom.As_Techno();
-			if (techno != NULL && techno->IsActive && !techno->IsInLimbo && !techno->IsTethered && techno->What_Am_I() != RTTI_BUILDING) {
+			// Attack Move rework by ChthonVII -- exit attack-move because we got a new order
+            if (techno && ActiveCFEPatchConfig.EnableAttackMove){
+                techno->ResetAttackMove();
+            }
+            if (techno != NULL && techno->IsActive && !techno->IsInLimbo && !techno->IsTethered && techno->What_Am_I() != RTTI_BUILDING) {
 				techno->Transmit_Message(RADIO_OVER_OUT);
 				techno->Assign_Destination(TARGET_NONE);
 				techno->Assign_Target(TARGET_NONE);
@@ -858,10 +862,6 @@ void EventClass::Execute(void)
 			else if (techno && CFE_Patch_Can_Have_Rally_Point(*techno)) {
 				techno->Assign_Target(TARGET_NONE);
 			}
-			// Attack Move rework by ChthonVII -- exit attack-move because we got a new order
-            if (techno && ActiveCFEPatchConfig.EnableAttackMove){
-                techno->ResetAttackMove();
-            }
 			break;
 
 		/*

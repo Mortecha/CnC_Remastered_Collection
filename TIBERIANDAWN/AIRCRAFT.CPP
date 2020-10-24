@@ -89,7 +89,6 @@
 
 #include	"function.h"
 
-
 /*
 ** This contains the value of the Virtual Function Table Pointer
 */
@@ -1746,7 +1745,12 @@ int AircraftClass::Mission_Move(void)
 		**	Double check and change LZ if necessary.
 		*/
 		case VALIDATE_LZ:
-			if (!Target_Legal(NavCom)) {
+			// Attack Move rework by ChthonVII -- If "smarter aircraft" mode is also enabled, don't attack move if you don't have any ammo to start with
+            if (AttackMove && ActiveCFEPatchConfig.EnableSmarterAircraft && !IsALoaner && !Ammo){
+                ResetAttackMove();
+                Enter_Idle_Mode();
+            }
+			else if (!Target_Legal(NavCom)) {
 				Enter_Idle_Mode();
 			} else {
 				if (!Is_LZ_Clear(NavCom) || !Cell_Seems_Ok(As_Cell(NavCom))) {
@@ -1787,6 +1791,14 @@ int AircraftClass::Mission_Move(void)
 				int distance = Process_Fly_To(true);
 
 				if (distance < 0x0080) {
+                    // Attack Move rework by ChthonVII -- helicopters should go home at the end of an attack-move rather than landing
+                    if (AttackMove){
+                        Assign_Target(TARGET_NONE);
+                        Assign_Destination(TARGET_NONE);
+                        ResetAttackMove();
+                        Enter_Idle_Mode();
+                        return(1);
+                    }
 					if (Target_Legal(TarCom)) {
 						SecondaryFacing.Set_Desired(Direction(TarCom));
 					} else {
@@ -1847,6 +1859,18 @@ int AircraftClass::Mission_Move(void)
 void AircraftClass::Enter_Idle_Mode(bool )
 {
 	Validate();
+    
+    // Attack Move rework by ChthonVII -- If we would go idle, but we still have ammo, continue on towards destination instead
+    if (AttackMove){
+       if (Ammo){
+            AttackMoveEnterMoveMode();
+            return;
+        }
+        else {
+            ResetAttackMove();
+        }
+    }
+    
 	MissionType mission = MISSION_GUARD;
 	if (In_Which_Layer() == LAYER_GROUND) {
 		if (IsALoaner) {
@@ -2212,7 +2236,8 @@ ActionType AircraftClass::What_Action(CELL cell) const
 	ActionType action = FootClass::What_Action(cell);
 
 	//using function for IsVisible so we have different results for different players - JAS 2019/09/30
-	if ((action == ACTION_MOVE || action == ACTION_ATTACK) && !Map[cell].Is_Visible(PlayerPtr)) {
+    // Attack Move rework by ChthonVII -- If you can't move aircraft into gap-covered cells, attack-move shouldn't work either
+	if ((action == ACTION_MOVE || action == ACTION_ATTACK || action == ACTION_ATTACKMOVE) && !Map[cell].Is_Visible(PlayerPtr)) {
 		action = ACTION_NOMOVE;
 	}
 
@@ -2286,7 +2311,7 @@ int AircraftClass::Mission_Attack(void)
 		**	Double check target and validate the attack zone.
 		*/
 		case VALIDATE_AZ:
-			if (!Target_Legal(TarCom) || !Ammo) {
+			if (!Target_Legal(TarCom) ||  (ActiveCFEPatchConfig.EnableSmarterAircraft && !IsALoaner && !Ammo)) {
 				Status = RETURN_TO_BASE;
 			} else {
 				Status = PICK_ATTACK_LOCATION;

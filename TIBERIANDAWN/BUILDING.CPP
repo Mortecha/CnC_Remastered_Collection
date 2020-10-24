@@ -3268,6 +3268,11 @@ ActionType BuildingClass::What_Action(ObjectClass * object) const
 {
 	Validate();
 	ActionType action = TechnoClass::What_Action(object);
+    
+    // Attack Move rework by ChthonVII -- If we somehow passed attack-move to a *building* change it back to move
+    if (action == ACTION_ATTACKMOVE){
+        action = ACTION_MOVE;
+    }
 
 	if (action == ACTION_SELF) {
 		if (Class->IsFactory && PlayerPtr == House) {
@@ -3345,6 +3350,11 @@ ActionType BuildingClass::What_Action(CELL cell) const
 {
 	Validate();
 	ActionType action = TechnoClass::What_Action(cell);
+    
+    // Attack Move rework by ChthonVII -- If we somehow passed attack-move to a *building* change it back to move
+    if (action == ACTION_ATTACKMOVE){
+        action = ACTION_MOVE;
+    }
 
 	if (action == ACTION_MOVE && !Can_Have_Rally_Point() && (*this != STRUCT_CONST || !Special.IsMCVDeploy)) {
 		action = ACTION_NONE;

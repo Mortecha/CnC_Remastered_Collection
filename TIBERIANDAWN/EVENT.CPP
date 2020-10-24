@@ -625,7 +625,24 @@ CCDebugString ("C&C95 - Primary building packet received\n");
 						object->Clicked_As_Target((HousesType)ID); 
 					}
 				}
-				techno->Assign_Mission(Data.MegaMission.Mission);
+                
+                // Attack Move rework by ChthonVII -- now that we are on the back side of the multiplayer communications, swap MISSION_ATTACKMOVE back to MISSION_MOVE and set flag and target
+                if (ActiveCFEPatchConfig.EnableAttackMove){
+                    if (Data.MegaMission.Mission == MISSION_ATTACKMOVE){
+                        techno->Assign_Mission(MISSION_MOVE);
+                        techno->AttackMove = 1;
+                        techno->RememberedNavCom = Data.MegaMission.Destination;
+                    }
+                    // if we assigned any other mission, terminate attack-move
+                    else {
+                        techno->Assign_Mission(Data.MegaMission.Mission);
+                        techno->ResetAttackMove();
+                    }
+                }
+                // original code
+                else {
+                    techno->Assign_Mission(Data.MegaMission.Mission);
+                }
 
 				/*
 				**	Guard area mode is handled with care. The specified target is actually
@@ -665,8 +682,12 @@ CCDebugString ("C&C95 - Primary building packet received\n");
 		*/
 		case IDLE:
 			techno = As_Techno(Data.Target.Whom);
+            // Attack Move rework by ChthonVII -- exit attack-move because we got a new order
+            if (techno && ActiveCFEPatchConfig.EnableAttackMove){
+                techno->ResetAttackMove();
+            }
 			if (techno && techno->IsActive && !techno->IsInLimbo && !techno->IsTethered) {
-				techno->Assign_Destination(TARGET_NONE);
+                techno->Assign_Destination(TARGET_NONE);
 				techno->Assign_Target(TARGET_NONE);
 				techno->Enter_Idle_Mode();
 			}
@@ -683,6 +704,10 @@ CCDebugString ("C&C95 - Primary building packet received\n");
 			if (techno && techno->IsActive && !techno->IsInLimbo && !techno->IsTethered) {
 				techno->Scatter(0, true);
 			}
+			// Attack Move rework by ChthonVII -- exit attack-move because we got a new order
+            if (techno && ActiveCFEPatchConfig.EnableAttackMove){
+                techno->ResetAttackMove();
+            }
 			break;
 
 		/*

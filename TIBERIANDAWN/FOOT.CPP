@@ -612,7 +612,14 @@ int FootClass::Mission_Attack(void)
 	if (Target_Legal(TarCom)) {
 		Approach_Target();
 	} else {
-		Enter_Idle_Mode();
+		        // Attack Move rework by ChthonVII -- If we're in the middle of an attack-move, then go back to moving instead of going idle
+        if (AttackMove){
+            AttackMoveEnterMoveMode();
+            return(1);
+        }
+        else{
+            Enter_Idle_Mode();
+        }
 	}
 	return(TICKS_PER_SECOND+2);
 }
@@ -1298,6 +1305,12 @@ void FootClass::Active_Click_With(ActionType action, ObjectClass * object)
 			}
 			break;
 
+        case ACTION_ATTACKMOVE: // Attack Move rework by ChthonVII
+            if (Can_Player_Move()) {
+				Player_Assign_Mission(MISSION_ATTACKMOVE, TARGET_NONE, object->As_Target());
+			}
+			break;
+            
 		case ACTION_NOMOVE:
 		case ACTION_MOVE:
 			if (Can_Player_Move()) {
@@ -1339,7 +1352,8 @@ void FootClass::Active_Click_With(ActionType action, CELL cell)
 			Player_Assign_Mission(MISSION_HARVEST, TARGET_NONE, ::As_Target(cell));
 			break;
 
-		case ACTION_MOVE:
+        case ACTION_ATTACKMOVE: // Attack Move rework by ChthonVII -- fall through into ACTION_MOVE case
+        case ACTION_MOVE:
 			if (AllowVoice) {
 				COORDINATE coord = Map.Pixel_To_Coord(Get_Mouse_X(), Get_Mouse_Y());
 				OutList.Add(EventClass(ANIM_MOVE_FLASH, PlayerPtr->Class->House, coord, 1 << PlayerPtr->Class->House));
@@ -1349,7 +1363,12 @@ void FootClass::Active_Click_With(ActionType action, CELL cell)
 		case ACTION_NOMOVE:
 			//using function for IsVisible so we have different results for different players - JAS 2019/09/30
 			if (What_Am_I() != RTTI_AIRCRAFT || Map[cell].Is_Visible(PlayerPtr)) {
-				Player_Assign_Mission(MISSION_MOVE, TARGET_NONE, ::As_Target(cell));
+                if (action == ACTION_ATTACKMOVE){
+                    Player_Assign_Mission(MISSION_ATTACKMOVE, TARGET_NONE, ::As_Target(cell));
+                }
+                else {
+                    Player_Assign_Mission(MISSION_MOVE, TARGET_NONE, ::As_Target(cell));
+                }
 			}
 			break;
 
