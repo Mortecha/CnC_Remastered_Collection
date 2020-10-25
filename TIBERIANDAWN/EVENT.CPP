@@ -705,9 +705,10 @@ CCDebugString ("C&C95 - Primary building packet received\n");
 				techno->Scatter(0, true);
 			}
 			// Attack Move rework by ChthonVII -- exit attack-move because we got a new order
-            if (techno && ActiveCFEPatchConfig.EnableAttackMove){
-                techno->ResetAttackMove();
-            }
+            // On second thought, scatter probably shouldn't end attack-move
+            //if (techno && ActiveCFEPatchConfig.EnableAttackMove){
+            //    techno->ResetAttackMove();
+            //}
 			break;
 
 		/*

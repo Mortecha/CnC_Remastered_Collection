@@ -873,9 +873,10 @@ void EventClass::Execute(void)
 				((FootClass *)techno)->IsScattering = true;
 				techno->Scatter(0, true, false);
                 // Attack Move rework by ChthonVII -- exit attack-move because we got a new order
-                if (ActiveCFEPatchConfig.EnableAttackMove){
-                    techno->ResetAttackMove();
-                }
+                // On second thought, scatter probably shouldn't end attack-move
+                //if (ActiveCFEPatchConfig.EnableAttackMove){
+                //    techno->ResetAttackMove();
+                //}
 			}
 			break;
 
