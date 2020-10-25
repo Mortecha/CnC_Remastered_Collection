@@ -712,3 +712,16 @@ WARRANTY. SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OF OR LIMITATIONS ON
 IMPLIED WARRANTIES OR THE LIMITATIONS ON THE APPLICABLE STATUTORY RIGHTS OF A
 CONSUMER, SO SOME OR ALL OF THE ABOVE EXCLUSIONS AND LIMITATIONS MAY NOT APPLY
 TO YOU.
+
+
+FURTHER ADDITIONAL TERMS per GNU GPL Section 7
+
+Please preserve the author attributions as set forth in the README.md file.
+
+Please note that EA has published "Command & Conquer Franchise Modding
+Guidelines."
+(https://www.ea.com/games/command-and-conquer/command-and-conquer-remastered/modding-faq)
+While they are not not legally binding (they are ex post facto and many terms
+are contrary to the GPL), they do express EA's wishes, and, so if you don't find
+them too onerous, you might follow them for the sake of being considerate to
+the people who kindly open-sourced these games.
