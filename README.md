@@ -6,9 +6,9 @@ The current version is 1.4.
 
 The Tiberian Dawn mod is available on Steam Workshop here: [link](https://steamcommunity.com/sharedfiles/filedetails/?id=2239875646)
 
-The Red Alert mod is available on Steam Workshop here: link
+The Red Alert mod is available on Steam Workshop here: [link](https://steamcommunity.com/sharedfiles/filedetails/?id=2268301299)
 
-If you don't have Steam (or Steam is misbehaving), you can download the mod directly from Github here: link.
+If you don't have Steam (or Steam is misbehaving), you can download the mod directly from Github here: [link](https://github.com/ChthonVII/CnC_Remastered_Collection/releases).
 
 The original CFE Patch features all appear to be working, but not all of them have been thoroughly tested them or examined for uncaught merge conflicts.
 
@@ -34,10 +34,10 @@ All features can be controlled via the INI file located at "My Documents\\CnCRem
 - Configurable Build Distance -- Controls the maximum allowable gap between buildings, allowing a TD-style no-space, or an RA-style 1-space, or larger gaps if you like.
 - Tiberium/Ore Growth Scale -- Applies a multiplier to tiberium/ore growth rate.
 - TS/RA2-style Wall Building -- Automatically builds wall pieces in the intervening spaces when a wall piece is constructed in line with a nearby piece of the same type. Hold \[Ctrl\] when placing a wall piece to disable this behavior. (Note: This feature is not compatible with LAN multiplayer. A total rework of this feature is planned to fix it.)
-- Configurable Silo/Refinery Capacity -- Increases (or decreases) the amount of ore silos and refineries can hold.
+- Configurable Silo/Refinery Capacity (RA only) -- Increases (or decreases) the amount of ore silos and refineries can hold.
 
 
-# TODO List:
+# TODO List
 ------------------
 See [wiki](https://github.com/ChthonVII/CnC_Remastered_Collection/wiki/TODO-List).
 
