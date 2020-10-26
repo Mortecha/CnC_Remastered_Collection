@@ -167,10 +167,17 @@ class MapClass: public GScreenClass
 
 		enum MapEnum {SCAN_AMOUNT=MAP_CELL_TOTAL};
 
+        // ChthonVII TS-style visceroid spawning
+    public:
+        unsigned char VisceroidOffalCount = 0;
+    private:
+        
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[1024];
+        // Chthon CFE Note: original padding was 1024
+        // used one byte for visceroid spawning
+		unsigned char SaveLoadPadding[1023];
 };
 
 #endif

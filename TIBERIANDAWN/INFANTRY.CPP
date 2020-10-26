@@ -778,8 +778,26 @@ void InfantryClass::Per_Cell_Process(bool center)
 	*/
 	if (IsActive && !IsInLimbo && center && cellptr->Land_Type() == LAND_TIBERIUM && *this != INFANTRY_E5) {
 		int damage = 2;
-		Take_Damage(damage, 0, WARHEAD_FIRE);
+        COORDINATE savedcoord = Coord;
+		int tiberiumstrikesagain = Take_Damage(damage, 0, WARHEAD_FIRE);
+        if ((tiberiumstrikesagain == RESULT_DESTROYED) && ActiveCFEPatchConfig.TSVisceroidSpawn){
+            Map.VisceroidOffalCount++;
+            if (Random_Pick(0, 19) < Map.VisceroidOffalCount){
+                UnitClass * unit = new UnitClass(UNIT_VICE, HOUSE_JP);
+                if (unit) {
+                    if (Scan_Place_Object(unit, Coord_Cell(savedcoord))){
+					//if (unit->Unlimbo(savedcoord)) {
+                        Map.VisceroidOffalCount = 0;
+                    }
+                    else {
+						delete unit;
+					}
+                }
+            }
+        }
 	}
+	
+	
 }
 
 
