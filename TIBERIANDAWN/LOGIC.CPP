@@ -251,10 +251,15 @@ void LogicClass::AI(void)
 	/*
 	**	Map related logic is performed.
 	*/
-	for (int i = 0; i < ActiveCFEPatchConfig.TibGrowthScale; ++i)
-	{
-		Map.Logic();
-	}
+    if (ActiveCFEPatchConfig.BetterTibGrowth){
+        Map.CFELogic();
+    }
+    else {
+        for (int i = 0; i < ActiveCFEPatchConfig.TibGrowthScale; ++i)
+        {
+            Map.Logic();
+        }
+    }
 
 //	Heap_Dump_Check( "After Map.Logic" );
 

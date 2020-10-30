@@ -2328,6 +2328,8 @@ int AircraftClass::Mission_Attack(void)
 				Assign_Destination(Good_Fire_Location(TarCom));
 				if (Target_Legal(NavCom)) {
 					Status = TAKE_OFF;
+                    // Chthon CFE Note: smarter aircraft
+                    TargetRecheckCounter = 0;
 				} else {
 					Status = RETURN_TO_BASE;
 				}
@@ -2379,6 +2381,17 @@ int AircraftClass::Mission_Attack(void)
 					Status = PICK_ATTACK_LOCATION;
 					return(1);
 				}
+				
+				// Chthon CFE Note: Smarter aircraft.
+				// If we've been flying towards the target for 120 ticks, let's make sure it hasn't moved
+				if (ActiveCFEPatchConfig.EnableSmarterAircraft){
+                    TargetRecheckCounter++;
+                    if (TargetRecheckCounter >= 120){
+                        TargetRecheckCounter = 0;
+                        Status = PICK_ATTACK_LOCATION;
+                        return(1);
+                    }
+                }
 
 				int distance = Process_Fly_To(true);
 

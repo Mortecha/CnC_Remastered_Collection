@@ -59,6 +59,9 @@ void Populate_CFE_Patch_Config_From_INI(const INIClass& ini)
 	GetSetting(ActiveCFEPatchConfig.EnableSafeSabotage        , "FEATURES", "SAFE_SABOTAGE");
     GetSetting(ActiveCFEPatchConfig.EnableSmarterAircraft      , "FEATURES", "SMARTER_AIRCRAFT");
     GetSetting(ActiveCFEPatchConfig.TSVisceroidSpawn      , "FEATURES", "TS_VISCEROID_SPAWN");
+    GetSetting(ActiveCFEPatchConfig.EnableSmarterSAMs      , "FEATURES", "SMARTER_SAMS");
+    GetSetting(ActiveCFEPatchConfig.BetterTibGrowth      , "FEATURES", "BETTER_TIB_GROWTH");
+    
 
 	//Settings
     GetSetting(ActiveCFEPatchConfig.InfantryTiberiumAversion               , "SETTINGS", "INFANTRY_TIBERIUM_AVERSION");
@@ -90,6 +93,11 @@ void Populate_CFE_Patch_Config_From_INI(const INIClass& ini)
     }
     if (ActiveCFEPatchConfig.HarvyOptimizeCommunalismDenominator == 0){
         ActiveCFEPatchConfig.HarvyOptimizeCommunalismDenominator = 1;
+    }
+    
+    //growth can't be negative
+    if (ActiveCFEPatchConfig.TibGrowthScale < 0){
+        ActiveCFEPatchConfig.TibGrowthScale = 0;
     }
     
     // Compute complex weights here so they only have to be computed once

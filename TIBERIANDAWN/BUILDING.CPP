@@ -2391,9 +2391,20 @@ int BuildingClass::Exit_Object(TechnoClass * base)
 				AircraftClass *air = (AircraftClass *)base;
 
 				if (Cell_X(Coord_Cell(Center_Coord())) - Map.MapCellX < Map.MapCellWidth/2) {
-					cell = XY_Cell(Map.MapCellX-1, Random_Pick(0, Map.MapCellHeight-1)+Map.MapCellY);
+                    // CFE Chthon Note: have padless helicopters fly in on same Y coord as the primary pad. borrowed from screamingchicken
+                    if (ActiveCFEPatchConfig.EnableSmarterAircraft){
+                        cell = XY_Cell(Map.MapCellX - 1, Cell_Y(Coord_Cell(Center_Coord())));
+                    }
+                    else {
+                        cell = XY_Cell(Map.MapCellX-1, Random_Pick(0, Map.MapCellHeight-1)+Map.MapCellY);
+                    }
 				} else {
-					cell = XY_Cell(Map.MapCellX+Map.MapCellWidth, Random_Pick(0, Map.MapCellHeight-1)+Map.MapCellY);
+                    if (ActiveCFEPatchConfig.EnableSmarterAircraft){
+                        cell = XY_Cell(Map.MapCellX + Map.MapCellWidth, Cell_Y(Coord_Cell(Center_Coord())));
+                    }
+					else {
+                        cell = XY_Cell(Map.MapCellX+Map.MapCellWidth, Random_Pick(0, Map.MapCellHeight-1)+Map.MapCellY);
+                    }
 				}
 				ScenarioInit++;
 				if (air->Unlimbo(Cell_Coord(cell), DIR_N)) {
@@ -4478,6 +4489,11 @@ int BuildingClass::Mission_Attack(void)
 			*/
 			case SAM_UNDERGROUND:
 				IsReadyToCommence = true;
+                // Chthon CFE Note: Smarter SAM behavior inspired by screamingchicken
+                if (ActiveCFEPatchConfig.EnableSmarterSAMs){
+                    SAMAmmo = 6;
+                    SAMLoweringDelay = 0;
+                }
 				if (Target_Legal(TarCom)) {
 					Set_Rate(2);
 					Set_Stage(0);
@@ -4520,6 +4536,13 @@ int BuildingClass::Mission_Attack(void)
 							PrimaryFacing.Set_Desired(facing);
 						} else {
 							Status = SAM_FIRING;
+                            //Chthon CFE Note: Smarter SAM behavior inspired by screamingchicken
+                            if (ActiveCFEPatchConfig.EnableSmarterSAMs){
+                                // jump to the long-delay SAM_FIRING2 if number of shots left is odd
+                                if (SAMAmmo == 1 || SAMAmmo == 3 || SAMAmmo == 5){
+                                    Status = SAM_FIRING2;
+                                }
+                            }
 						}
 					}
 				}
@@ -4544,6 +4567,13 @@ int BuildingClass::Mission_Attack(void)
 							if (error == FIRE_OK) {
 								Fire_At(TarCom, 0);
 								Status = SAM_READY2;
+                                 // Chthon CFE Note: Smarter SAM behavior inspired by screamingchicken
+                                if (ActiveCFEPatchConfig.EnableSmarterSAMs){
+                                    SAMAmmo--;
+                                    if (!SAMAmmo){
+                                        Status = SAM_LOCKING;
+                                    }
+                                }
 								return(1);
 							}
 						}
@@ -4563,6 +4593,13 @@ int BuildingClass::Mission_Attack(void)
 							PrimaryFacing.Set_Desired(facing);
 						} else {
 							Status = SAM_FIRING2;
+                            //Chthon CFE Note: Smarter SAM behavior inspired by screamingchicken
+                            if (ActiveCFEPatchConfig.EnableSmarterSAMs){
+                                // jump to the short-delay SAM_FIRING if number of shots left is even
+                                if (SAMAmmo == 2 || SAMAmmo == 4 || SAMAmmo == 6){
+                                    Status = SAM_FIRING;
+                                }
+                            }
 						}
 					}
 				}
@@ -4584,6 +4621,13 @@ int BuildingClass::Mission_Attack(void)
 							if (error == FIRE_OK) {
 								Fire_At(TarCom, 0);
 								Status = SAM_LOCKING;
+                                // Chthon CFE Note: Smarter SAM behavior inspired by screamingchicken
+                                if (ActiveCFEPatchConfig.EnableSmarterSAMs){
+                                    SAMAmmo--;
+                                    if (SAMAmmo){
+                                        Status = SAM_READY; // loop back to SAM ready if we still have ammo
+                                    }
+                                }
 								return(TICKS_PER_SECOND*3);
 							}
 						}
@@ -4595,15 +4639,44 @@ int BuildingClass::Mission_Attack(void)
 			**	Rotating to face north in preparation for lowering to reload.
 			*/
 			case SAM_LOCKING:
-				if (!PrimaryFacing.Is_Rotating()) {
-					if (PrimaryFacing == DIR_N) {
-						Set_Rate(2);
-						Set_Stage(48);
-						Status = SAM_LOWERING;
-					} else {
-						PrimaryFacing.Set_Desired(DIR_N);
-					}
-				}
+                // Chthon CFE Note: Smarter SAM behavior inspired by screamingchicken
+                if (ActiveCFEPatchConfig.EnableSmarterSAMs){
+                    // the only way we should be able to enter this branch with SAMLoweringDelay of 0
+                    // is if this is the first run since something expressly set it to zero
+                    // (either SAM_UNDERGROUND or a few lines down from here)
+                    if (SAMLoweringDelay == 0){
+                        SAMLoweringDelay = (2*TICKS_PER_SECOND) + 1; //wait two seconds before dropping
+                    }
+                    if (SAMLoweringDelay > 0){
+                        SAMLoweringDelay--;
+                    }
+                    // if we still have ammo and time on the clock, look for a target
+                    if ((SAMLoweringDelay > 0) && SAMAmmo){
+                        ThreatType threat = THREAT_RANGE;
+                        Assign_Target(Greatest_Threat(threat));
+                        // if we found one, shoot at it
+                        if (Target_Legal(TarCom)) {
+                            Status = SAM_READY;
+                            SAMLoweringDelay = 0; // reset so we'll wait again next time
+                        }
+                        // we could rotate back to north here if there's no target, but next target (if there is one) is more likely near current facing... I think
+                        // return whether we found a target or not so we don't fall through 
+                        return(1);
+                    }
+                    // if timer expired or no ammo, drop through to vanilla code so the SAM will drop down
+                    SAMLoweringDelay = -1; // set to -1 so we don't restart the timer while rotating
+                }
+                    
+                // vanilla code:
+                if (!PrimaryFacing.Is_Rotating()) {
+                    if (PrimaryFacing == DIR_N) {
+                        Set_Rate(2);
+                        Set_Stage(48);
+                        Status = SAM_LOWERING;
+                    } else {
+                        PrimaryFacing.Set_Desired(DIR_N);
+                    }
+                }
 				return(1);
 
 			/*

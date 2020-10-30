@@ -248,10 +248,17 @@ class AircraftClass : public FootClass, public FlyClass
 		*/
 		long ReinforcementStart;
 
+        // Chthon CFE Note: Counter for helicopters to recheck target's location
+    public:
+        unsigned short int TargetRecheckCounter = 0;
+    private:
+        
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[28];
+        // Chthon CFE note: original padding was 28 bytes
+        // TargetRecheckCounter eats 2 bytes
+		unsigned char SaveLoadPadding[26];
 
 		/*
 		** This contains the value of the Virtual Function Table Pointer

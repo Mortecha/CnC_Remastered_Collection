@@ -1639,3 +1639,178 @@ int MapClass::Scan_For_Overlay(const CELL origin, const FacingType dir, const Ov
 
 	return -1;
 }
+
+
+// Chthon CFE Note: Alternative logic for better tiberium growth.
+void MapClass::CFELogic(void){
+
+    if (Debug_Force_Crash) { *((int *)0) = 1; }
+
+	/*
+	**	Bail early if there is no allowed growth or spread of Tiberium.
+	*/
+	if (!Special.IsTGrowth && !Special.IsTSpread) return;
+
+	/*
+	**	Scan the whole map in order to accumulate the potential
+	**	Tiberium cells that can grow or spread.
+	*/
+
+    // since CELL is just short int, a static array should probably be faster than a vector
+    // we could make our arrays class members instead, but we'd have to break save/load compatibility since not enough padding
+    // since trees go in the list multiple times, in theory we could go over 4096 (so we need to check for it), but in practice we never should see a map that puts us anywhere close
+    static CELL cangrowlist[MAP_CELL_TOTAL]; //4096
+    static CELL canspreadlist[MAP_CELL_TOTAL];
+    memset(cangrowlist, 0, MAP_CELL_TOTAL*sizeof(CELL));
+    memset(canspreadlist, 0, MAP_CELL_TOTAL*sizeof(CELL));
+    int growlistsize = 0;
+    int spreadlistsize = 0;
+
+    int index;
+	for (index = 0; index < MAP_CELL_TOTAL; index++) {
+		CELL cell = index;
+		CellClass *ptr = &(*this)[cell];
+        TerrainClass * terrain = ptr->Cell_Terrain();
+        if (Special.IsTGrowth && ptr->Land_Type() == LAND_TIBERIUM && ptr->OverlayData < 11 && growlistsize < MAP_CELL_TOTAL) {
+            cangrowlist[growlistsize] = cell;
+            growlistsize++;
+        }
+        else if (Special.IsTSpread && ptr->Land_Type() == LAND_TIBERIUM && ptr->OverlayData > 6 && spreadlistsize < MAP_CELL_TOTAL){
+            canspreadlist[spreadlistsize] = cell;
+            spreadlistsize++;
+        }
+        else if (terrain && terrain->Class->IsTiberiumSpawn){
+            for (int i =0; i<3; i++){
+                if (spreadlistsize < MAP_CELL_TOTAL){
+                    canspreadlist[spreadlistsize] = cell;
+                    spreadlistsize++;
+                }
+            }
+        }
+    }
+
+    
+    // figure out our growth strength
+    int growthstrength = 1;
+    if (Special.IsTFast || GameToPlay != GAME_NORMAL){
+        growthstrength = 2;
+    }
+    if (GameToPlay == GAME_GLYPHX_MULTIPLAYER) {
+        // only use the bigger of multiplayer setting or CFE mod's growth scale
+        int scalefactor = MPlayerTiberium;
+        if (ActiveCFEPatchConfig.TibGrowthScale > scalefactor){
+            scalefactor = ActiveCFEPatchConfig.TibGrowthScale;
+        }
+        growthstrength += ((scalefactor - 1)*2);
+    }
+    else {
+        growthstrength *= ActiveCFEPatchConfig.TibGrowthScale;
+    }
+    
+    
+    // grow tiberium
+    int maxroll = (growlistsize * 137) - 1; // it took the old logic 137 ticks to do a growth phase
+    for (int i =0; i<growlistsize; i++){
+        if (Random_Pick(0, maxroll) < growthstrength){
+            CellClass * newcell = &(*this)[cangrowlist[i]];
+            // totally redundant check
+            //if (newcell->Land_Type() == LAND_TIBERIUM && newcell->OverlayData < 11) {
+                newcell->OverlayData++;
+            //}
+        }
+    }
+
+    // spread tiberium
+    maxroll = (spreadlistsize * 137) - 1;
+    for (int i =0; i<spreadlistsize; i++){
+        if (Random_Pick(0, maxroll) < growthstrength){
+            CELL cell = canspreadlist[i];
+            if (Map.In_Radar(cell)) {
+                CellClass *newcell = NULL;
+                CellClass *backupcell = NULL;
+                bool foundideal = false;
+                bool foundbackup = false;
+                FacingType offset = Random_Pick(FACING_N, FACING_NW); // 0 to 7
+                // starting from a random direction, iterate through the possible directions and check the adjacent cells
+                for (FacingType j = FACING_N; j < FACING_COUNT; j++) {
+                    FacingType facingindex = j + offset;
+                    // the old logic had a bug where it seemed to think Adjacent_Cell() would do the modular math; but it doesn't -- it just returns NULL if you go over 7
+                    // fixing this is going to increase the spread rate above vanilla, but it is necessary to remove bias
+                    //if (facingindex >= FACING_COUNT){
+                    //    facingindex -= FACING_COUNT;
+                    //}
+                    // i was wrong; they do loop
+                    newcell = (*this)[cell].Adjacent_Cell(facingindex);
+                    // we win if we find an empty cell
+                    if (
+                        newcell &&
+                        Map.In_Radar(newcell->Cell_Number()) && //don't spread tiberium off the map
+                        newcell->Cell_Object() == NULL &&
+                        newcell->Land_Type() == LAND_CLEAR &&
+                        newcell->Overlay == OVERLAY_NONE &&
+                        newcell->TType != TEMPLATE_BRIDGE1 &&
+                        newcell->TType != TEMPLATE_BRIDGE2 &&
+                        newcell->TType != TEMPLATE_BRIDGE3 &&
+                        newcell->TType != TEMPLATE_BRIDGE4
+                    ){
+                        foundideal = true;
+                        break;
+                    }
+                    // save the first cell we find containing tiberium that could grow as a backup
+                    else if (
+                        !foundbackup &&
+                        newcell &&
+                        Map.In_Radar(newcell->Cell_Number()) && //don't spread tiberium off the map
+                        newcell->Land_Type() == LAND_TIBERIUM &&
+                        newcell->OverlayData < 11
+                    ){
+                        backupcell = newcell;
+                        foundbackup = true;
+                    }
+                }
+                // if we found an empty adjacent cell, spread tiberium to it
+                if (foundideal){
+                    new OverlayClass(Random_Pick(OVERLAY_TIBERIUM1, OVERLAY_TIBERIUM12), newcell->Cell_Number());
+                    newcell->OverlayData = 1;
+                }
+                // the old logic had you SOL if you rolled a spreader cell that had no open adjacent cells (or the bug above made it miss them)
+                // instead let's fall back to making an adjacent cell grow if we can
+                // this also increases the grow/spread rate a bit above vanilla, but feels more fair
+                else if (foundbackup){
+                    // totally redundant check
+                    //if (backupcell->Land_Type() == LAND_TIBERIUM && backupcell->OverlayData < 11) {
+                        backupcell->OverlayData++;
+                    //}
+                }
+                // finally, let's fall back to making the spreader cell itself grow if none of the neighbors can
+                else {
+                    CellClass * thiscell = &(*this)[canspreadlist[i]];
+                    if (thiscell && thiscell->Land_Type() == LAND_TIBERIUM && thiscell->OverlayData < 11) {
+                        thiscell->OverlayData++;
+                    }
+                    // if that failed too, now we are truly SOL and just fail to spread/grow anything
+                    // just for shits and giggles, let's maybe spawn a visceroid if it was a tree that failed to spread
+                    else {
+                        TerrainClass * thisterrain = thiscell->Cell_Terrain();
+                        if (thisterrain && thisterrain->Class->IsTiberiumSpawn){
+                            VisceroidTreeFrustrationCount++;
+                            if (Random_Pick(0, 99) < VisceroidTreeFrustrationCount + 4){ // 5% chance + 1% per failed try since last spawn
+                                UnitClass * unit = new UnitClass(UNIT_VICE, HOUSE_JP);
+                                if (unit) {
+                                    if (Scan_Place_Object(unit, cell)){
+                                        VisceroidTreeFrustrationCount = 0;
+                                    }
+                                    else {
+                                        delete unit;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+        
+    return;
+}

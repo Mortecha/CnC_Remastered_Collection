@@ -161,6 +161,10 @@ class BuildingClass : public TechnoClass
 		//So even though this CELL doesn't exist in older saves, it should be zero initialised.
 		//NOTE: /!\ Stole 2 bytes from the save game padding /!\/
 		TARGET RallyPoint;
+        
+        // Chthon CFE Note: delay for smarter SAMs
+        short int SAMLoweringDelay;
+        unsigned char SAMAmmo;
 
 		TARGET Target_For_Rally_Point() const;
 
@@ -312,7 +316,10 @@ class BuildingClass : public TechnoClass
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[30];
+        // Chthon CFE Note: original padding was 32 bytes
+        // Rally points eat 2 bytes
+        // Smarter SAMS eat 3 bytes
+		unsigned char SaveLoadPadding[27];
 
 		static COORDINATE const CenterOffset[BSIZE_COUNT];
 

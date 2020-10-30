@@ -81,6 +81,7 @@ class MapClass: public GScreenClass
 		long  Overpass(void);
 
 		virtual void Logic(void);
+        virtual void CFELogic(void); // Chthon CFE Note: Alternative logic for better tiberium growth.
 		virtual void Set_Map_Dimensions(int x, int y, int w, int h);
 
 		/*
@@ -170,14 +171,16 @@ class MapClass: public GScreenClass
         // ChthonVII TS-style visceroid spawning
     public:
         unsigned char VisceroidOffalCount = 0;
+        unsigned char VisceroidTreeFrustrationCount = 0;
     private:
         
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
         // Chthon CFE Note: original padding was 1024
-        // used one byte for visceroid spawning
-		unsigned char SaveLoadPadding[1023];
+        // used 1 byte for TS visceroid spawning
+        // used 1 byte for better tiberium growth (the part that spawns a visceroid)
+		unsigned char SaveLoadPadding[1022];
 };
 
 #endif
