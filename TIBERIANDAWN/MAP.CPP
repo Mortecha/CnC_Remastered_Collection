@@ -1661,8 +1661,9 @@ void MapClass::CFELogic(void){
     // since trees go in the list multiple times, in theory we could go over 4096 (so we need to check for it), but in practice we never should see a map that puts us anywhere close
     static CELL cangrowlist[MAP_CELL_TOTAL]; //4096
     static CELL canspreadlist[MAP_CELL_TOTAL];
-    memset(cangrowlist, 0, MAP_CELL_TOTAL*sizeof(CELL));
-    memset(canspreadlist, 0, MAP_CELL_TOTAL*sizeof(CELL));
+    // should be safe not to zero these between calls
+    //memset(cangrowlist, 0, MAP_CELL_TOTAL*sizeof(CELL));
+    //memset(canspreadlist, 0, MAP_CELL_TOTAL*sizeof(CELL));
     int growlistsize = 0;
     int spreadlistsize = 0;
 
@@ -1675,7 +1676,7 @@ void MapClass::CFELogic(void){
             cangrowlist[growlistsize] = cell;
             growlistsize++;
         }
-        else if (Special.IsTSpread && ptr->Land_Type() == LAND_TIBERIUM && ptr->OverlayData > 6 && spreadlistsize < MAP_CELL_TOTAL){
+        if (Special.IsTSpread && ptr->Land_Type() == LAND_TIBERIUM && ptr->OverlayData > 6 && spreadlistsize < MAP_CELL_TOTAL){
             canspreadlist[spreadlistsize] = cell;
             spreadlistsize++;
         }
