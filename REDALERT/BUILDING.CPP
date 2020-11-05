@@ -2159,9 +2159,20 @@ int BuildingClass::Exit_Object(TechnoClass * base)
 				AircraftClass * air = (AircraftClass *)base;
 
 				if (Cell_X(Coord_Cell(Center_Coord())) - Map.MapCellX < Map.MapCellWidth/2) {
-					cell = XY_Cell(Map.MapCellX-1, Random_Pick(0, Map.MapCellHeight-1)+Map.MapCellY);
+                    // CFE Chthon Note: have padless helicopters fly in on same Y coord as the primary pad. borrowed from screamingchicken
+                    if (ActiveCFEPatchConfig.EnableSmarterAircraft){
+                        cell = XY_Cell(Map.MapCellX - 1, Cell_Y(Coord_Cell(Center_Coord())));
+                    }
+                    else {
+                        cell = XY_Cell(Map.MapCellX-1, Random_Pick(0, Map.MapCellHeight-1)+Map.MapCellY);
+                    }
 				} else {
-					cell = XY_Cell(Map.MapCellX+Map.MapCellWidth, Random_Pick(0, Map.MapCellHeight-1)+Map.MapCellY);
+                    if (ActiveCFEPatchConfig.EnableSmarterAircraft){
+                        cell = XY_Cell(Map.MapCellX + Map.MapCellWidth, Cell_Y(Coord_Cell(Center_Coord())));
+                    }
+                    else {
+                        cell = XY_Cell(Map.MapCellX+Map.MapCellWidth, Random_Pick(0, Map.MapCellHeight-1)+Map.MapCellY);
+                    }
 				}
 				ScenarioInit++;
 				if (air->Unlimbo(Cell_Coord(cell), DIR_N)) {
