@@ -1670,6 +1670,9 @@ void MapClass::CFELogic(void){
     int index;
 	for (index = 0; index < MAP_CELL_TOTAL; index++) {
 		CELL cell = index;
+        if (!Map.In_Radar(cell)) {
+            continue; // don't bother if the cell's not on the playable section of the map
+        }
 		CellClass *ptr = &(*this)[cell];
         TerrainClass * terrain = ptr->Cell_Terrain();
         if (Special.IsTGrowth && ptr->Land_Type() == LAND_TIBERIUM && ptr->OverlayData < 11 && growlistsize < MAP_CELL_TOTAL) {
@@ -1712,7 +1715,8 @@ void MapClass::CFELogic(void){
     // grow tiberium
     int maxroll = (growlistsize * 137) - 1; // it took the old logic 137 ticks to do a growth phase
     for (int i =0; i<growlistsize; i++){
-        if (Random_Pick(0, maxroll) < growthstrength){
+        // we need to use our modded Random_Pick() function since maxroll might exceed the regular function's cap of 32767
+        if (CFE_Patch_FullRange_Random_Pick(0, maxroll) < growthstrength){
             CellClass * newcell = &(*this)[cangrowlist[i]];
             // totally redundant check
             //if (newcell->Land_Type() == LAND_TIBERIUM && newcell->OverlayData < 11) {
@@ -1724,7 +1728,8 @@ void MapClass::CFELogic(void){
     // spread tiberium
     maxroll = (spreadlistsize * 137) - 1;
     for (int i =0; i<spreadlistsize; i++){
-        if (Random_Pick(0, maxroll) < growthstrength){
+        // again use the modded random_pick since maxroll may be big
+        if (CFE_Patch_FullRange_Random_Pick(0, maxroll) < growthstrength){
             CELL cell = canspreadlist[i];
             if (Map.In_Radar(cell)) {
                 CellClass *newcell = NULL;
