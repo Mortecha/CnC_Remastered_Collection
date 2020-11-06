@@ -57,6 +57,7 @@
 #include	"function.h"
 #include	"terrain.h"
 
+#include "CFEDEBUG.H"
 
 /***********************************************************************************************
  * TerrainClass::~TerrainClass -- Default destructor for terrain class objects.                *
@@ -491,10 +492,36 @@ void TerrainClass::AI(void)
 	assert(IsActive);
 
 	ObjectClass::AI();
-
-	if ((*this == TERRAIN_MINE) && (Frame % (Rule.GrowthRate * TICKS_PER_MINUTE)) == 0) {
-		Map[::As_Cell(As_Target())].Spread_Tiberium(true);
-	}
+    
+    if (*this == TERRAIN_MINE){
+        if (ActiveCFEPatchConfig.BetterOreGrowth){
+            int threshhold = 1;
+            if (Session.Type == GAME_GLYPHX_MULTIPLAYER) {
+                if (Session.Options.Tiberium > 1) {
+                    threshhold = Session.Options.Tiberium;
+                }
+            }
+            if (ActiveCFEPatchConfig.OreGrowthScale > threshhold){
+                threshhold = ActiveCFEPatchConfig.OreGrowthScale;
+            }
+            int maxroll = (Rule.GrowthRate * TICKS_PER_MINUTE) - 1;
+            if (CFE_Patch_FullRange_Random_Pick(0, maxroll) < threshhold){
+                // This is correct. It centers the growth around the mine itself, not the cell below, which is what Map[::As_Cell(As_Target())] does
+                Map[Coord_Cell(Coord)].CFEOreMineSpread_Tiberium();
+            }
+        }
+        // vanilla code
+        else {
+            //if ((*this == TERRAIN_MINE) && (Frame % (Rule.GrowthRate * TICKS_PER_MINUTE)) == 0) {
+            if (Frame % (Rule.GrowthRate * TICKS_PER_MINUTE) == 0) {
+                // Chthon CFE Note: aha! This is a bug. It ends up centering the growth around the cell BELOW the ore mine. That's why we sometimes get ore trying to grow on top of a mine.
+                // We'll fix it for the "better ore growth" mod feature and leave it alone otherwise
+                Map[::As_Cell(As_Target())].Spread_Tiberium(true);
+            }
+        }
+    }
+        
+        
 	if (StageClass::Graphic_Logic()) {
 		Mark();
 

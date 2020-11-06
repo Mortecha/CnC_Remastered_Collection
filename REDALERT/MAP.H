@@ -89,6 +89,7 @@ class MapClass: public GScreenClass
 		long Overpass(void);
 
 		virtual void Logic(void);
+        virtual void CFELogic(void); // Chthon CFE Note: Alternative logic for better tiberium growth.
 		virtual void Set_Map_Dimensions(int x, int y, int w, int h);
 
 		/*

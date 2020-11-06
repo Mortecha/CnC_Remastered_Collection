@@ -3132,6 +3132,166 @@ bool CellClass::Spread_Tiberium(bool forced)
 }
 
 
+// Chthon CFE Note: Alt version with failovers
+bool CellClass::CFESpread_Tiberium(bool forced)
+{
+	if (!forced) {
+		if (!Can_Tiberium_Spread()) return(false);
+	}
+    CellClass *backupcell = NULL;
+    bool foundbackup = false;
+	FacingType offset = Random_Pick(FACING_N, FACING_NW);
+	for (FacingType index = FACING_N; index < FACING_COUNT; index++) {
+		CellClass *newcell = Adjacent_Cell(index+offset);
+
+        if (newcell != NULL){
+            
+            // added check for mine head to (hopefully) fix issue where ore sometimes spawns over mine head
+            TerrainClass * terrainptr = newcell->Cell_Terrain();
+            if (terrainptr && (*terrainptr == TERRAIN_MINE)){
+                continue;
+            }
+        
+            if (newcell->Can_Tiberium_Germinate()) {
+                // original code:
+                // This is probably buggy since the code called by new OverlayClass
+                // first sets OverlayData to 1, then calls Redraw_Objects(),
+                // then calls Tiberium_Adjust(), which sets OverlayData to something else,
+                // and then this function expressly sets OverlayData to 0.
+                // Depending on when the graphics thread comes through, the ore may display above stage 0, then shrink the next time it updates, which is visibly wrong if you happen to be looking at that cell as it happens
+                //new OverlayClass(Random_Pick(OVERLAY_GOLD1, OVERLAY_GOLD4), newcell->Cell_Number());
+                //newcell->OverlayData = 0;
+                
+                // this is probably right -- set OverlayData one time, call RedrawObjects() last
+                newcell->OverlayData = 0;
+                newcell->Overlay = Random_Pick(OVERLAY_GOLD1, OVERLAY_GOLD4);
+                newcell->Recalc_Attributes();
+                newcell->Redraw_Objects();
+                return(true);
+            }
+            else if (!foundbackup && newcell->Can_Tiberium_Grow()) {
+                backupcell = newcell;
+                foundbackup = true;
+            }
+            
+        }
+	}
+	// fall back to making a neighbor grow
+	if (foundbackup){
+        backupcell->Grow_Tiberium();
+        return(true);
+    }
+    // die here if we're a mine head so we don't try to spawn ore there
+    TerrainClass * terrainptr = Cell_Terrain();
+    if (terrainptr && (*terrainptr == TERRAIN_MINE)){
+        return false;
+    }
+    // fall back to growing yourself
+    if (Can_Tiberium_Grow()){
+        Grow_Tiberium();
+        return(true);
+    }
+    // fall back to maybe turning into gems (%1 chance)
+    if (Random_Pick(0, 99) < 1){ 
+        
+        OverlayData = Random_Pick(0,2);
+        Overlay = Random_Pick(OVERLAY_GEMS1, OVERLAY_GEMS4);
+        Recalc_Attributes();
+        Redraw_Objects(true);
+        
+        return(true);
+    }
+    
+	
+	return(false);
+}
+
+// Chthon CFE Note: special version for ore mines in "better ore growth" mode
+bool CellClass:: CFEOreMineSpread_Tiberium(){
+    CellClass *backupcell = NULL;
+    CellClass *gembackupcell = NULL;
+    bool foundbackup = false;
+    bool foundgembackup = false;
+	FacingType offset = Random_Pick(FACING_N, FACING_NW);
+	for (FacingType index = FACING_N; index < FACING_COUNT; index++) {
+		CellClass *newcell = Adjacent_Cell(index+offset);
+
+        if (newcell != NULL){
+            
+            // added check for mine head to (hopefully) fix issue where ore sometimes spawns over mine head
+            TerrainClass * terrainptr = newcell->Cell_Terrain();
+            if (terrainptr && (*terrainptr == TERRAIN_MINE)){
+                continue;
+            }
+        
+            if (newcell->Can_Tiberium_Germinate()) {
+                
+                // this is probably right -- set OverlayData one time, call RedrawObjects() last
+                newcell->OverlayData = 0;
+                newcell->Overlay = Random_Pick(OVERLAY_GOLD1, OVERLAY_GOLD4);
+                newcell->Recalc_Attributes();
+                newcell->Redraw_Objects();
+                return(true);
+            }
+            else if (!foundbackup && newcell->Can_Tiberium_Grow()) {
+                backupcell = newcell;
+                foundbackup = true;
+            }
+            else if (   !foundgembackup && 
+                            Rule.IsTSpread &&
+                            ((Session.Type == GAME_NORMAL) || Session.Options.Tiberium) &&
+                            (newcell->Land_Type() == LAND_TIBERIUM) && 
+                            (newcell->OverlayData >= 11) &&
+                            (   (Overlay == OVERLAY_GOLD1) ||
+                                (Overlay == OVERLAY_GOLD2) ||
+                                (Overlay == OVERLAY_GOLD3) ||
+                                (Overlay == OVERLAY_GOLD4)
+                            )
+            ){
+                gembackupcell = newcell;
+                foundgembackup = true;
+            }
+        }
+	}
+	// fall back to making a neighbor grow
+	if (foundbackup){
+        backupcell->Grow_Tiberium();
+        return(true);
+    }
+    // fall back to maybe promoting a neighbor to gems (1% chance)
+    if (foundgembackup && (Random_Pick(0, 99) < 1)){
+        gembackupcell->OverlayData = Random_Pick(0,2);
+        gembackupcell->Overlay = Random_Pick(OVERLAY_GEMS1, OVERLAY_GEMS4);
+        gembackupcell->Recalc_Attributes();
+        gembackupcell->Redraw_Objects(true);
+        return true;
+    }
+    // fall back to maybe spawning some ants for the hell of it
+    /*
+    // Unfortunately, the ants show up immobile and invincible
+    // Guessing RA isn't initializing HOUSE_JP in all (any?) game modes (also tried HOUSE_NEUTRAL and it didn't work in skirmish)
+    // Maybe try to figure this out someday
+    if (Random_Pick(0, 99) < 100){ // TODO: revert to1 after testing
+        int antmax = Random_Pick(1, 3) + Random_Pick(0, 2);
+        bool antspawned = false;
+        for (int i=0; i<antmax; i++){
+            UnitClass * unit = new UnitClass(Random_Pick(UNIT_ANT1, UNIT_ANT3), HOUSE_JP);
+            if (unit) {
+                if (Scan_Place_Object(unit, Cell_Number())){
+                    antspawned = true;
+                }
+                else {
+                    delete unit;
+                }
+            }
+        }
+        return antspawned;
+    }
+    */
+    return false;
+}
+
+
 /***********************************************************************************************
  * CellClass::Can_Tiberium_Germinate -- Determines if Tiberium can begin growth in the cell.   *
  *                                                                                             *
@@ -3164,6 +3324,10 @@ bool CellClass::Can_Tiberium_Germinate(void) const
 
 	if (Overlay != OVERLAY_NONE) return(false);
 
+    // Chthon CFE Note: Don't spawn ore over a mine head!
+    TerrainClass * terrainptr = Cell_Terrain();
+    if (terrainptr && (*terrainptr == TERRAIN_MINE)) return false;
+    
 	return(true);
 }
 

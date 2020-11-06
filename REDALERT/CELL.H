@@ -288,6 +288,8 @@ class CellClass
 		*/
 		bool Grow_Tiberium(void);
 		bool Spread_Tiberium(bool forced=false);
+        bool CFESpread_Tiberium(bool forced=false); //Chthon CFE Note: for better ore growth
+        bool CFEOreMineSpread_Tiberium(); //Chthon CFE Note: for better ore growth, special function for ore mines
 		long Tiberium_Adjust(bool pregame=false);
 		void Wall_Update(void);
 		void Concrete_Calc(void);

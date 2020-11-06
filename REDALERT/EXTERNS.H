@@ -105,6 +105,7 @@ struct CFEPatchConfig
 	bool EnableTanyaGuard = false;
 	bool EnableSafeSabotage = false;
     bool EnableSmarterAircraft = false;
+    bool BetterOreGrowth = false;
 
 	int  HarvyQueueJumpCutoff = 4;
 	int  HarvyOptimizeUnloadWaitWeight = 6;
