@@ -519,6 +519,7 @@ TechnoClass::TechnoClass(void) :
 
 	// Added for multiplayer changes. ST - 3/6/2019 11:34AM
 	IsDiscoveredByPlayerMask = 0;
+    
 }
 
 
@@ -2359,7 +2360,9 @@ BulletClass * TechnoClass::Fire_At(TARGET target, int which)
 	**	need to be performed according to the style of projectile
 	**	created.
 	*/
-	int firepower = (weapon->Attack > 0) ? ((int)weapon->Attack * House->FirepowerBias) : 0;
+    // Chthon CFE Note: Port per-unit firepower bias from RA
+	//int firepower = (weapon->Attack > 0) ? ((int)weapon->Attack * House->FirepowerBias) : 0;
+ 	int firepower = (weapon->Attack > 0) ? ((int)weapon->Attack * FirepowerBias * House->FirepowerBias) : 0;
  	bullet = new BulletClass(weapon->Fires);
 	if (bullet) {
 		bullet->Assign_Target(target);
@@ -3043,7 +3046,9 @@ ResultType TechnoClass::Take_Damage(int & damage, int distance, WarheadType warh
 	**	Adjust damage according to house override armor value.
 	*/
 	if (damage > 0) {
-		damage = damage * House->ArmorBias;
+        // Chthon CFE Note: Port per-unit armor bias from RA
+		//damage = damage * House->ArmorBias;
+        damage = damage * ArmorBias * House->ArmorBias;
 	}
 
 	ResultType result = ObjectClass::Take_Damage(damage, distance, warhead, source);

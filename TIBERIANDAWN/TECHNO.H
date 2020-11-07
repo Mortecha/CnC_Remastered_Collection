@@ -210,6 +210,10 @@ class TechnoClass :	public RadioClass,
 		*/
 		unsigned int IsDiscoveredByPlayerMask;
 
+        //Chthon CFE Note: Port per-unit firepower and armor biases from RA so we can use them for vetrancy and stuff
+        float ArmorBias = 1.0;
+		float FirepowerBias = 1.0;
+        
         // Attack Move rework by ChthonVII --  Remember the intial destination in case of appearing enemies during an attack move
 		mutable TARGET RememberedNavCom; //this is unsigned short in TD, so only 2 bytes
         // Converted most attack-move variables into bit fields to save space, but then ended up removing most of them during attack-move rework
@@ -229,8 +233,9 @@ class TechnoClass :	public RadioClass,
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
         // Chthon CFE Note: Original padding was 16
+        // firepower and armor biases eat 8 bytes
         // Attack Move rework by ChthonVII eats 3 bytes
-		unsigned char SaveLoadPadding[13];
+		unsigned char SaveLoadPadding[5];
 
 		/*---------------------------------------------------------------------
 		**	Constructors, Destructors, and overloaded operators.

@@ -301,11 +301,17 @@ class FootClass :	public TechnoClass
 		*/
 		COORDINATE HeadToCoord;
 
-
+        // Chthon CFE Note: Port per-unit speed bias from RA
+public:
+        float SpeedBias = 1.0;
+private:
+        
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[16];
+        // Chthon CFE Note: Original padding was 16 bytes
+        // speed bias eats 4 bytes
+		unsigned char SaveLoadPadding[12];
 };
 
 #endif

@@ -1476,7 +1476,9 @@ void InfantryClass::AI(void)
 				/*
 				**	Advance the infantry as far as it should go.
 				*/
-				MPHType maxspeed = MPHType(min((unsigned)(Class->MaxSpeed * House->GroundspeedBias), MPH_LIGHT_SPEED));
+                // Chthon CFE Note: Port per-unit speed bias from RA
+				//MPHType maxspeed = MPHType(min((unsigned)(Class->MaxSpeed * House->GroundspeedBias), MPH_LIGHT_SPEED));
+				MPHType maxspeed = MPHType(min((unsigned)(Class->MaxSpeed * SpeedBias * House->GroundspeedBias), MPH_LIGHT_SPEED));
 				Coord = Coord_Move(Coord, Direction(Head_To_Coord()), Fixed_To_Cardinal(maxspeed, movespeed));
 			}
 			Mark(MARK_DOWN);
