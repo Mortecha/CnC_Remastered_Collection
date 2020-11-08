@@ -553,6 +553,8 @@ bool FootClass::Basic_Path(void)
 int FootClass::Mission_Move(void)
 {
 	if (!Target_Legal(NavCom) && !IsDriving && MissionQueue == MISSION_NONE) {
+         // Attack Move rework by ChthonVII -- Destination reached, snap out of attack mode
+		ResetAttackMove();
 		Enter_Idle_Mode();
 	}
 	if (!Target_Legal(TarCom) && !House->IsHuman) {
