@@ -451,10 +451,24 @@ void UnitClass::AI(void)
 	}
 	else if (*this == UNIT_VICE && Map[Coord_Cell(Coord)].Land_Type() == LAND_TIBERIUM && Health_Ratio() < 0x0100 && (Frame % 16) == 0) {
 		Strength++;
+        if (ActiveCFEPatchConfig.MeanerVisceroids){
+            Strength+=3; //total of 4
+            if (Strength > Class->MaxStrength){
+                Strength = Class->MaxStrength;
+            }
+        }
 		Mark(MARK_CHANGE);
 	}
 	else if (ActiveCFEPatchConfig.EnableHarvySelfRepair && *this == UNIT_HARVESTER && (Frame % 16) == 0 && Health_Ratio() < 0x0080) {
 		++Strength;
+		Mark(MARK_CHANGE);
+	}
+	// Chthon CFE Note: Additional base heal for meaner visceroids
+	if (ActiveCFEPatchConfig.MeanerVisceroids && *this == UNIT_VICE  && (Frame % 16) == 0 && Health_Ratio() < 0x0100) {
+		Strength+=2;
+        if (Strength > Class->MaxStrength){
+            Strength = Class->MaxStrength;
+        }
 		Mark(MARK_CHANGE);
 	}
 
@@ -874,6 +888,15 @@ bool UnitClass::Unlimbo(COORDINATE coord, DirType dir)
 			Set_Rate(2);
 			Set_Stage(0);
 		}
+		
+		// Chthon CFE Note: make meaner visceroids... meaner
+		if (ActiveCFEPatchConfig.MeanerVisceroids && *this == UNIT_VICE){
+            FirepowerBias = 1.5f;
+            ArmorBias = 0.5f;
+            SpeedBias = 1.1f;
+            Assign_Mission(MISSION_HUNT);
+        }
+		
 		return(true);
 	}
 	return(false);
@@ -1043,11 +1066,64 @@ ResultType UnitClass::Take_Damage(int & damage, int distance, WarheadType warhea
 			}
 		}
 
+		
+		// Chthon CFE Note: If a meaner visceroid dies, prepare to spawn some tiberium
+        bool dotiberiumexplosion = false;
+        CELL squidgy_died_here = Coord_Cell(Coord); // remember location since we're about to delete the unit
+        if (ActiveCFEPatchConfig.MeanerVisceroids && *this == UNIT_VICE){
+            dotiberiumexplosion = true;
+        }
+        
 		/*
 		**	Finally, delete the vehicle.
 		*/
 		Delete_This();
 
+        // Chthon CFE Note -- if a meaner visceroid died, spawn tiberium 
+        if (dotiberiumexplosion){
+                CellClass *squidgy_died_here_ptr = &Map[squidgy_died_here];
+                // current location becomes full-grown tiberium
+                if (Map[squidgy_died_here].Land_Type() == LAND_TIBERIUM && squidgy_died_here_ptr){
+                    squidgy_died_here_ptr->OverlayData = 11;
+                }
+                else if (
+                     squidgy_died_here_ptr &&
+                     Map.In_Radar(squidgy_died_here) && //don't spread tiberium off the map
+                     squidgy_died_here_ptr->Cell_Object() == NULL && // cell should be clear since unit was deleted
+                     squidgy_died_here_ptr->Land_Type() == LAND_CLEAR &&
+                     squidgy_died_here_ptr->Overlay == OVERLAY_NONE &&
+                     squidgy_died_here_ptr->TType != TEMPLATE_BRIDGE1 &&
+                     squidgy_died_here_ptr->TType != TEMPLATE_BRIDGE2 &&
+                     squidgy_died_here_ptr->TType != TEMPLATE_BRIDGE3 &&
+                     squidgy_died_here_ptr->TType != TEMPLATE_BRIDGE4
+                ){
+                    new OverlayClass(Random_Pick(OVERLAY_TIBERIUM1, OVERLAY_TIBERIUM12), squidgy_died_here);
+                    squidgy_died_here_ptr->OverlayData = 11;
+                }
+                // maybe spawn/add some tiberium in adjacent cells
+                for (FacingType i = FACING_N; i < FACING_COUNT; i++) {
+                    CellClass *newcell = Map[squidgy_died_here].Adjacent_Cell(i);
+                    if (newcell && Random_Pick(0,2) < 2){
+                        if (Map[newcell->Cell_Number()].Land_Type() == LAND_TIBERIUM && newcell->OverlayData < 11){
+                            newcell->OverlayData = Random_Pick(newcell->OverlayData + 1, 11);
+                        }
+                        else if (
+                            Map.In_Radar(newcell->Cell_Number()) && //don't spread tiberium off the map
+                            newcell->Cell_Object() == NULL &&
+                            newcell->Land_Type() == LAND_CLEAR &&
+                            newcell->Overlay == OVERLAY_NONE &&
+                            newcell->TType != TEMPLATE_BRIDGE1 &&
+                            newcell->TType != TEMPLATE_BRIDGE2 &&
+                            newcell->TType != TEMPLATE_BRIDGE3 &&
+                            newcell->TType != TEMPLATE_BRIDGE4
+                        ){
+                            new OverlayClass(Random_Pick(OVERLAY_TIBERIUM1, OVERLAY_TIBERIUM12), newcell->Cell_Number());
+                            newcell->OverlayData = Random_Pick(1,6);
+                        }
+                    }
+                }
+            } // end of meaner visceroid code
+        
 	} else {
 
 		/*
@@ -1388,6 +1464,13 @@ void UnitClass::Enter_Idle_Mode(bool initial)
 				if (GameToPlay == GAME_NORMAL || House->IsHuman) {
 					order = MISSION_GUARD;
 				} else {
+                    
+                    	// Chthon CFE Note: Meaner Visercoids go back to mission_hunt since that's where their custom AI is
+                        if (ActiveCFEPatchConfig.MeanerVisceroids && *this == UNIT_VICE){
+                            order = MISSION_HUNT;
+                            return;
+                        }
+                    
 					//if (GameToPlay != GAME_NORMAL) {
 #ifndef USE_RA_AI
 						// Don't use MISSION_TIMED_HUNT since this can trigger the Blitz behavior
@@ -1419,7 +1502,7 @@ void UnitClass::Enter_Idle_Mode(bool initial)
 				}
 			}
 		}
-	}
+	}	
 	Assign_Mission(order);
 }
 
@@ -3138,7 +3221,93 @@ int UnitClass::Mission_Hunt(void)
 				}
 				break;
 		}
-	} else {
+	}
+	// Chthon CFE Note: Meaner Visercoids AI may wander the map
+	else if (ActiveCFEPatchConfig.MeanerVisceroids && *this == UNIT_VICE){
+        TARGET oldtarget = TarCom;
+        // look for a nearby target
+        if (Target_Something_Nearby(THREAT_AREA)) {
+            Approach_Target();
+            return (TICKS_PER_SECOND+5);
+        }
+        // if no new target, go back to our old target if it's still valid
+        else if (Target_Legal(oldtarget)){
+            Assign_Target(oldtarget);
+            Approach_Target();
+            return (TICKS_PER_SECOND+5);
+        }
+        // pick a new action at random:
+        // 1/2 - sit there a bit
+        // 3/8 - move to random spot nearby
+        // 1/12 - move to random spot anywhere
+        // 1/24 - do full-map scan for a target
+        else {
+            int choice = Random_Pick(0,63);
+            // just sit there
+            if (choice < 32){
+                //Random_Animate(); // visceroids already have a constant animation
+                return((3*TICKS_PER_SECOND)+5);
+            }
+            // move to a nearby cell
+            else if (choice < 60){
+                const CELL currentlocation = Coord_Cell(Coord);
+                const int currentX = Cell_X(currentlocation);
+                const int currentY = Cell_Y(currentlocation);
+                TARGET nearbyspot = TARGET_NONE;
+                int tries = 0;
+                do {
+                    CELL newcell = XY_Cell(Random_Pick(currentX, currentX+8) - 4, Random_Pick(currentY, currentY+8) - 4);
+                    if (Map.In_Radar(newcell) && Find_Path_AStar(nullptr, currentlocation, newcell, 1, MOVE_NO, -1)){
+                        nearbyspot = ::As_Target(newcell);
+                    }
+                    else {
+                        nearbyspot = TARGET_NONE;
+                    }
+                    tries++;
+                    if (tries > 100){
+                        break; // avoid infinite loop if nothing nearby is passable
+                    }
+                } while (!Target_Legal(nearbyspot));
+                if (Target_Legal(nearbyspot)){
+                    Assign_Destination(nearbyspot);
+                    Assign_Mission(MISSION_MOVE);
+                }
+                return 1;
+            }
+            // move to a random cell on the map
+            else if (choice < 63){
+                TARGET nearbyspot = TARGET_NONE;
+                int tries = 0;
+                do {                    
+                    CELL newcell = XY_Cell(Random_Pick(Map.MapCellX, Map.MapCellWidth -1), Random_Pick(Map.MapCellY, Map.MapCellHeight -1));
+                    if (Map.In_Radar(newcell) && Find_Path_AStar(nullptr, Coord_Cell(Coord), newcell, 1, MOVE_NO, -1)){
+                        nearbyspot = ::As_Target(newcell);
+                    }
+                    else {
+                        nearbyspot = TARGET_NONE;
+                    }
+                    tries++;
+                    if (tries > 100){
+                        break; // avoid infinite loop if nothing anywhere is passable
+                    }
+                } while (!Target_Legal(nearbyspot));
+                if (Target_Legal(nearbyspot)){
+                    Assign_Destination(nearbyspot);
+                    Assign_Mission(MISSION_MOVE);
+                }
+                return 1;
+            }
+            // do a full map scan for something to attack
+            else {
+                if (Target_Something_Nearby(THREAT_NORMAL)) {
+                    Approach_Target();
+                    return(TICKS_PER_SECOND+5);
+                }
+            }
+        }
+        return(TICKS_PER_SECOND+5); 
+    } // end of meaner Visercoids code
+	else {
 
 		if (*this == UNIT_GUNBOAT) {
 			if (!Target_Legal(NavCom)) {
@@ -4342,6 +4511,23 @@ int UnitClass::Mission_Move(void)
 		Assign_Mission(MISSION_HUNT);
 		return(TICKS_PER_SECOND);
 	}
+	
+	// Chthon CFE Note: Meaner Visercoids actually abort moves to go kill stuff
+	if (ActiveCFEPatchConfig.MeanerVisceroids && *this == UNIT_VICE){
+        if (Target_Something_Nearby(THREAT_AREA)) {
+            Assign_Destination(TARGET_NONE);
+            Assign_Mission(MISSION_HUNT);
+            Approach_Target();
+            return 1;
+        }
+        // visceroids seem to have some trouble getting out of mission move when they reach their destination
+        if (!Target_Legal(NavCom) || NavCom == ::As_Target(Coord_Cell(Coord))){
+            Assign_Destination(TARGET_NONE);
+            Assign_Mission(MISSION_HUNT);
+            return 1;
+        }
+    }
+	
 	return(TarComClass::Mission_Move());
 }
 

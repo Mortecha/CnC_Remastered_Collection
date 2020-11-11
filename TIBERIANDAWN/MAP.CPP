@@ -1820,3 +1820,41 @@ void MapClass::CFELogic(void){
         
     return;
 }
+
+// Chthon CFE Note -- generate visceroids if infantry died in interesting ways
+bool MapClass::ProcessTiberiumDeath(CELL where, unsigned char how){
+
+    // infantry died running through tiberium
+    if (how == 1){
+        VisceroidOffalCount++;
+        if (Random_Pick(0, 19) < VisceroidOffalCount){
+            UnitClass * unit = new UnitClass(UNIT_VICE, HOUSE_JP);
+            if (unit) {
+                if (Scan_Place_Object(unit, where)){
+                    Map.VisceroidOffalCount = 0;
+                    return true;
+                }
+                else {
+                    delete unit;
+                }
+            }
+        }
+    }
+    // infantry was killed by a visceroid
+    else if (how == 2){
+        if (Random_Pick(0, 3) < 1){
+            UnitClass * unit = new UnitClass(UNIT_VICE, HOUSE_JP);
+            if (unit) {
+                if (Scan_Place_Object(unit, where)){
+                    return true;
+                }
+                else {
+                    delete unit;
+                }
+            }
+        }
+    }
+    // maybe later add chem soldier spray?? need to think about balance implications...
+    
+    return false;
+}

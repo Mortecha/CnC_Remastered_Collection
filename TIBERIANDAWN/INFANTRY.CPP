@@ -460,6 +460,12 @@ ResultType InfantryClass::Take_Damage(int & damage, int distance, WarheadType wa
 			altsound = VOC_YELL1;
 		}
 
+		// Chthon CFE Note -- death by visceroid might spawn another visceroid
+		// This works because the infantry isn't deleted until the end of their death animation, so we can access DeathByTiberium later
+		if (ActiveCFEPatchConfig.MeanerVisceroids && source && source->What_Am_I() == RTTI_UNIT && *((UnitClass*)source) == UNIT_VICE){
+            DeathByTiberium = 2;
+        }
+		
 		/*
 		**	The type of warhead determines the animation the infantry
 		**	will perform when killed.
@@ -778,22 +784,11 @@ void InfantryClass::Per_Cell_Process(bool center)
 	*/
 	if (IsActive && !IsInLimbo && center && cellptr->Land_Type() == LAND_TIBERIUM && *this != INFANTRY_E5) {
 		int damage = 2;
-        COORDINATE savedcoord = Coord;
 		int tiberiumstrikesagain = Take_Damage(damage, 0, WARHEAD_FIRE);
+        // Chthon CFE Note -- possibly spawn a visceroid if infantry died walking through tiberium.
+        // This works because the infantry isn't deleted until the end of their death animation, so we can access DeathByTiberium later
         if ((tiberiumstrikesagain == RESULT_DESTROYED) && ActiveCFEPatchConfig.TSVisceroidSpawn){
-            Map.VisceroidOffalCount++;
-            if (Random_Pick(0, 19) < Map.VisceroidOffalCount){
-                UnitClass * unit = new UnitClass(UNIT_VICE, HOUSE_JP);
-                if (unit) {
-                    if (Scan_Place_Object(unit, Coord_Cell(savedcoord))){
-					//if (unit->Unlimbo(savedcoord)) {
-                        Map.VisceroidOffalCount = 0;
-                    }
-                    else {
-						delete unit;
-					}
-                }
-            }
+            DeathByTiberium = 1;
         }
 	}
 	
@@ -1242,6 +1237,11 @@ void InfantryClass::AI(void)
 	*/
 
 	if (Doing == DO_NOTHING || Fetch_Stage() >= Class->DoControls[Doing].Count) {
+        
+        // Chthon CFE note -- can't set variables inside a switch, so do it here:
+        CELL rememberedcell = Coord_Cell(Coord);
+        unsigned char rememberedDBT = DeathByTiberium;
+        
 		switch (Doing) {
 			default:
 				if (IsDriving) {
@@ -1291,6 +1291,14 @@ void InfantryClass::AI(void)
 			case DO_GRENADE_DEATH:
 			case DO_FIRE_DEATH:
 				Delete_This();
+                
+                // Chthon CFE Note -- possibly spawn visercoid if infantry died by tiberium or by visceroid
+                // Do this after the infantry is deleted so the cell will no longer be occupied
+                // (If it's occupied by other inantry, ther visceroid will get bumped to an adjacent cell.)
+                if (rememberedDBT > 0){
+                    Map.ProcessTiberiumDeath(rememberedcell, rememberedDBT);
+                }
+                
 				return;
 		}
 	}

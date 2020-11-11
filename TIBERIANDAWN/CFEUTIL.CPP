@@ -58,11 +58,11 @@ void Populate_CFE_Patch_Config_From_INI(const INIClass& ini)
 	GetSetting(ActiveCFEPatchConfig.EnableCommandoGuard       , "FEATURES", "COMMANDO_GUARD");
 	GetSetting(ActiveCFEPatchConfig.EnableSafeSabotage        , "FEATURES", "SAFE_SABOTAGE");
     GetSetting(ActiveCFEPatchConfig.EnableSmarterAircraft      , "FEATURES", "SMARTER_AIRCRAFT");
-    GetSetting(ActiveCFEPatchConfig.TSVisceroidSpawn      , "FEATURES", "TS_VISCEROID_SPAWN");
     GetSetting(ActiveCFEPatchConfig.EnableSmarterSAMs      , "FEATURES", "SMARTER_SAMS");
     GetSetting(ActiveCFEPatchConfig.BetterTibGrowth      , "FEATURES", "BETTER_TIB_GROWTH");
+    GetSetting(ActiveCFEPatchConfig.TSVisceroidSpawn      , "FEATURES", "TS_VISCEROID_SPAWN");
+    GetSetting(ActiveCFEPatchConfig.MeanerVisceroids      , "FEATURES", "MEANER_VISCEROIDS");
     
-
 	//Settings
     GetSetting(ActiveCFEPatchConfig.InfantryTiberiumAversion               , "SETTINGS", "INFANTRY_TIBERIUM_AVERSION");
 	GetSetting(ActiveCFEPatchConfig.BuildingGap               , "SETTINGS", "BUILDING_GAP");

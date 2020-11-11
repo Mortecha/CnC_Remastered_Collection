@@ -91,9 +91,10 @@ struct CFEPatchConfig
 	bool EnableCommandoGuard = false;
 	bool EnableSafeSabotage = false;
     bool EnableSmarterAircraft = false;
-    bool TSVisceroidSpawn = false;
     bool EnableSmarterSAMs = false;
     bool BetterTibGrowth = false;
+    bool TSVisceroidSpawn = false;
+    bool MeanerVisceroids = false;
 	int  InfantryTiberiumAversion = 0;
     int  BuildingGap = 2;
 	int  HarvyQueueJumpCutoff = 4;

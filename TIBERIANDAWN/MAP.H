@@ -170,6 +170,9 @@ class MapClass: public GScreenClass
 
         // ChthonVII TS-style visceroid spawning
     public:
+        // generate visceroids if infantry died in interesting ways
+        bool ProcessTiberiumDeath(CELL where, unsigned char how);
+        
         unsigned char VisceroidOffalCount = 0;
         unsigned char VisceroidTreeFrustrationCount = 0;
     private:

@@ -281,6 +281,7 @@ class FootClass :	public TechnoClass
 		
 		// Chthon CFE Note: make  public so harvester optimizations and queue jumping can use it
 		int Find_Path_AStar(PathType* const resultPath, const CELL source, CELL dest, const int maxLen, const MoveType threshhold, const int threat) const;
+        //int Passable_Cell(CELL cell, FacingType face, int threat, MoveType threshhold) const;
 	private:
 		int Passable_Cell(CELL cell, FacingType face, int threat, MoveType threshhold) const;
 		PathType * Find_Path(CELL dest, FacingType *final_moves, int maxlen, MoveType threshhold);

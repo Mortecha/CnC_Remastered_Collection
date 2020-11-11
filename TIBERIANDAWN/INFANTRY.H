@@ -242,10 +242,15 @@ class InfantryClass : public FootClass
 		*/
 		static void * VTable;
 
+        //Chthon CFE Note -- a flag that we were killed by tiberium or a viseroid
+        unsigned char DeathByTiberium = 0;
+        
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[32];
+        // Chthon CFE Note: original padding was 32 bytes.
+        // DeathByTiberium ate 1 byte
+		unsigned char SaveLoadPadding[31];
 };
 
 #endif
