@@ -108,6 +108,8 @@ struct CFEPatchConfig
     int  HarvyOptimizeCommunalismWeight = 29;
 	int  TibGrowthScale = 1;
 	int  WallBuildLength = 5;
+    int SmarterSAMAmmo = 2;
+    int  SmarterSAMBalanceDelay = 0;
 };
 
 extern CFEPatchConfig ActiveCFEPatchConfig;

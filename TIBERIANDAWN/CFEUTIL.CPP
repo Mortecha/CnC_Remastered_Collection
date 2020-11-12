@@ -76,6 +76,9 @@ void Populate_CFE_Patch_Config_From_INI(const INIClass& ini)
 	GetSetting(ActiveCFEPatchConfig.TibGrowthScale            , "SETTINGS", "TIB_GROWTH_SCALE");
 	GetSetting(ActiveCFEPatchConfig.WallBuildLength           , "SETTINGS", "WALL_BUILD_LENGTH");
 	GetSetting(ActiveCFEPatchConfig.WallsAlwaysHaveFullCost   , "SETTINGS", "WALLS_HAVE_FULL_COST");
+    GetSetting(ActiveCFEPatchConfig.SmarterSAMAmmo   , "SETTINGS", "SMARTER_SAM_AMMO");
+    GetSetting(ActiveCFEPatchConfig.SmarterSAMBalanceDelay   , "SETTINGS", "SMARTER_SAM_BALANCE_DELAY");
+    
 
 	//Clamp Wall Length between 1 (build at all) and 10 (buffer limits)
 	ActiveCFEPatchConfig.WallBuildLength = (std::max)(1, (std::min)(ActiveCFEPatchConfig.WallBuildLength, 10));
@@ -98,6 +101,16 @@ void Populate_CFE_Patch_Config_From_INI(const INIClass& ini)
     //growth can't be negative
     if (ActiveCFEPatchConfig.TibGrowthScale < 0){
         ActiveCFEPatchConfig.TibGrowthScale = 0;
+    }
+    
+    // SAMs can't have less than 1 ammo
+    if (ActiveCFEPatchConfig.SmarterSAMAmmo < 1){
+        ActiveCFEPatchConfig.SmarterSAMAmmo = 1;
+    }
+    
+    // overall SAM delay can't be less than 1 tick
+    if (ActiveCFEPatchConfig.SmarterSAMBalanceDelay + (TICKS_PER_SECOND*3) < 1){
+        ActiveCFEPatchConfig.SmarterSAMBalanceDelay = (-1*(TICKS_PER_SECOND*3))+1;
     }
     
     // Compute complex weights here so they only have to be computed once

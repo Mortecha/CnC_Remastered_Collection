@@ -4491,7 +4491,7 @@ int BuildingClass::Mission_Attack(void)
 				IsReadyToCommence = true;
                 // Chthon CFE Note: Smarter SAM behavior inspired by screamingchicken
                 if (ActiveCFEPatchConfig.EnableSmarterSAMs){
-                    SAMAmmo = 6;
+                    SAMAmmo = ActiveCFEPatchConfig.SmarterSAMAmmo;
                     SAMLoweringDelay = 0;
                 }
 				if (Target_Legal(TarCom)) {
@@ -4539,7 +4539,7 @@ int BuildingClass::Mission_Attack(void)
                             //Chthon CFE Note: Smarter SAM behavior inspired by screamingchicken
                             if (ActiveCFEPatchConfig.EnableSmarterSAMs){
                                 // jump to the long-delay SAM_FIRING2 if number of shots left is odd
-                                if (SAMAmmo == 1 || SAMAmmo == 3 || SAMAmmo == 5){
+                                if (SAMAmmo % 2 == 1){
                                     Status = SAM_FIRING2;
                                 }
                             }
@@ -4596,7 +4596,7 @@ int BuildingClass::Mission_Attack(void)
                             //Chthon CFE Note: Smarter SAM behavior inspired by screamingchicken
                             if (ActiveCFEPatchConfig.EnableSmarterSAMs){
                                 // jump to the short-delay SAM_FIRING if number of shots left is even
-                                if (SAMAmmo == 2 || SAMAmmo == 4 || SAMAmmo == 6){
+                                if (SAMAmmo % 2 == 0){
                                     Status = SAM_FIRING;
                                 }
                             }
@@ -4626,6 +4626,17 @@ int BuildingClass::Mission_Attack(void)
                                     SAMAmmo--;
                                     if (SAMAmmo){
                                         Status = SAM_READY; // loop back to SAM ready if we still have ammo
+                                        // delay to maintain balanced firing rate between old 2-shot SAM and new arbitrary-shot SAM
+                                        // in theory the correct delay to compensate for skipping the reloads is ~82:
+                                        // SAM_LOCKING rotates 15/254th of a circle per tick, and the average distance from N is 1/4 circle, so 4 ticks
+                                        // SAM_LOCKING takes 1 tick after reaching N
+                                        // SAM_LOWERING takes 30 ticks to animate, then returns TICKS_PER_SECOND (15)
+                                        // SAM_UNDERGROUND takes 1 tick
+                                        // SAM_RISING takes 30 ticks to animate, then returns 1
+                                        // That leaves us back at SAM_READY (although arbitrary-shot is still probably at an advantage since it probably has less far to rotate to get on target than 2-shot which has to come from N)
+                                        // But... waiting 8.5 sec between volleys feels reaaaaaaally slow.
+                                        // So feel free to use something lower at the expense of changing game balance.
+                                        return (TICKS_PER_SECOND*3) + ActiveCFEPatchConfig.SmarterSAMBalanceDelay;
                                     }
                                 }
 								return(TICKS_PER_SECOND*3);
