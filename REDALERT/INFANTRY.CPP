@@ -2463,8 +2463,14 @@ TARGET InfantryClass::Greatest_Threat(ThreatType threat) const
 	**	Special hack to make Tanya not auto-fire if controlled by a
 	**	human player.
 	*/
-	if (!ActiveCFEPatchConfig.EnableTanyaGuard && *this == INFANTRY_TANYA && House->IsHuman) {
-		return(TARGET_NONE);
+	if (*this == INFANTRY_TANYA && House->IsHuman) {
+        if (ActiveCFEPatchConfig.EnableTanyaGuard){
+            // Chthon CFE Note -- only target infantry, since colts aren't meaninful against other stuff, and Tanya doesn't switch to bombs for buildings
+            return(TechnoClass::Greatest_Threat((threat & (THREAT_RANGE | THREAT_AREA)) | THREAT_INFANTRY));
+        }
+        else {
+            return(TARGET_NONE);
+        }
 	}
 
 	if (Class->PrimaryWeapon != NULL) {

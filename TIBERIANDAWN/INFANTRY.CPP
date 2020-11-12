@@ -2563,10 +2563,16 @@ TARGET InfantryClass::Greatest_Threat(ThreatType threat) const
 		**	unless specifically in hunt mode.
 		*/
 		case WEAPON_RIFLE:
-			if (!ActiveCFEPatchConfig.EnableCommandoGuard && House->IsHuman && (Mission == MISSION_GUARD || Mission == MISSION_GUARD_AREA)) {
-				return(TARGET_NONE);
+			if (House->IsHuman && (Mission == MISSION_GUARD || Mission == MISSION_GUARD_AREA)) {
+                if (ActiveCFEPatchConfig.EnableCommandoGuard){
+                    // Chthon CFE Note -- only target infantry, since rifle isn't meaninful against other stuff, and commando doesn't switch to bombs for buildings
+                    return(TechnoClass::Greatest_Threat((threat & (THREAT_RANGE | THREAT_AREA)) | THREAT_INFANTRY));
+                }
+                else {
+                    return(TARGET_NONE);
+                }
 			}
-			return(TechnoClass::Greatest_Threat(threat | THREAT_INFANTRY|THREAT_BUILDINGS));
+			
 	}
 	// Chthon CFE Note: In RA we needed to add something to make infantry attack buildings in attack-move mode, but that doesn't seem to be needed here.
 	return(FootClass::Greatest_Threat(threat));
