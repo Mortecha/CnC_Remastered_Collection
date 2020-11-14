@@ -269,7 +269,13 @@ RulesClass::RulesClass(void) :
 	TiberiumShortScan(0x0600),
 	TiberiumLongScan(0x2000),
 	HealthBarDisplayMode(HB_SELECTED),
-	ResourceBarDisplayMode(RB_SELECTED)
+	ResourceBarDisplayMode(RB_SELECTED),
+	MaxFreeRefineryDistanceBias(10),
+	MinHarvesterQueueJumpDistance(7),
+	MaxWallExtensionDistance(4),
+	WallSellPriceDivisor(3),
+	AutoRepairFacilityKickOut(true),
+	AISurrenderObjectCountThreshold(8)
 {
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
 	NewUnitsEnabled = SecretUnitsEnabled = 0;
@@ -384,6 +390,7 @@ bool RulesClass::General(CCINIClass & ini)
 	static char const * const GENERAL = "General";
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
 	static char const * const AFTERMATH = "Aftermath";
+	static char const * const MOREQOL = "MoreQoL";
 
 	if(ini.Is_Present(AFTERMATH)) {
 //debugprint( "NewUnitsEnabled previously %i\n", NewUnitsEnabled );
@@ -408,6 +415,15 @@ bool RulesClass::General(CCINIClass & ini)
 	}
 
 #endif
+
+	if (ini.Is_Present(MOREQOL)) {
+		MaxFreeRefineryDistanceBias = ini.Get_Int(MOREQOL, "MaxFreeRefineryDistanceBias", MaxFreeRefineryDistanceBias);
+		MinHarvesterQueueJumpDistance = ini.Get_Int(MOREQOL, "MinHarvesterQueueJumpDistance", MinHarvesterQueueJumpDistance);
+		MaxWallExtensionDistance = ini.Get_Int(MOREQOL, "MaxWallExtensionDistance", MaxWallExtensionDistance);
+		WallSellPriceDivisor = ini.Get_Int(MOREQOL, "WallSellPriceDivisor", WallSellPriceDivisor);
+		AutoRepairFacilityKickOut = ini.Get_Bool(MOREQOL, "AutoRepairFacilityKickOut", AutoRepairFacilityKickOut);
+		AISurrenderObjectCountThreshold = ini.Get_Int(MOREQOL, "AISurrenderObjectCountThreshold", AISurrenderObjectCountThreshold);
+	}
 
 	if (ini.Is_Present(GENERAL)) {
 		TurboBoost = ini.Get_Fixed(GENERAL, "TurboBoost", TurboBoost);

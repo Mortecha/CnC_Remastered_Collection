@@ -173,7 +173,10 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 		case RADIO_CAN_LOAD:
 			TechnoClass::Receive_Message(from, message, param);
 			if (!House->Is_Ally(from)) return(RADIO_STATIC);
-			if (Mission == MISSION_CONSTRUCTION || Mission == MISSION_DECONSTRUCTION || BState == BSTATE_CONSTRUCTION || (!ScenarioInit && Class->Type != STRUCT_REFINERY && In_Radio_Contact())) return(RADIO_NEGATIVE);
+
+			if (Mission == MISSION_CONSTRUCTION || Mission == MISSION_DECONSTRUCTION || BState == BSTATE_CONSTRUCTION) return RADIO_NEGATIVE;
+			if (Class->Type != STRUCT_REFINERY && ((!ScenarioInit && In_Radio_Contact() && Contact_With_Whom() != from))) return RADIO_NEGATIVE;
+
 			switch (Class->Type) {
 				case STRUCT_AIRSTRIP:
 					if (from->What_Am_I() == RTTI_AIRCRAFT && ((AircraftClass const *)from)->Class->IsFixedWing) {
@@ -197,8 +200,27 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 
 				case STRUCT_REFINERY:
 					if (from->What_Am_I() == RTTI_UNIT &&
-						*((UnitClass *)from) == UNIT_HARVESTER &&
-						(ScenarioInit || !Is_Something_Attached())) {
+						((UnitClass *)from)->Class->IsToHarvest) {
+						if (ScenarioInit) {
+							return(RADIO_ROGER);
+						}
+
+						if (Is_Something_Attached()) {
+							return RADIO_NEGATIVE;
+						}
+
+						if (In_Radio_Contact()) {
+							TechnoClass* whom = Contact_With_Whom();
+
+							int oldDistance = ::Distance(::Coord_Cell(Center_Coord()), ::Coord_Cell(whom->Center_Coord()));
+							int newDistance = ::Distance(::Coord_Cell(Center_Coord()), ::Coord_Cell(from->Center_Coord()));
+							if (newDistance + Rule.MinHarvesterQueueJumpDistance < oldDistance) {
+								Transmit_Message(RADIO_OVER_OUT, whom);
+								return RADIO_ROGER;
+							}
+
+							return RADIO_NEGATIVE;
+						}
 
 						return((Contact_With_Whom() != from) ? RADIO_ROGER : RADIO_NEGATIVE);
 					}
@@ -318,17 +340,6 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 			return(RADIO_ROGER);
 
 		/*
-		**	If a transport or harvester is requesting permission to head toward, dock
-		**	and load/unload, check to make sure that this is allowed given the current
-		**	state of the building.
-		*/
-		case RADIO_ARE_REFINERY:
-			if (Is_Something_Attached() || In_Radio_Contact() || IsInLimbo || House->Class->House != from->Owner() || (*this != STRUCT_REFINERY/* && *this != STRUCT_REPAIR*/)) {
-				return(RADIO_NEGATIVE);
-			}
-			return(RADIO_ROGER);
-
-		/*
 		**	Someone is telling us that it is starting construction. This should only
 		**	occur if this is a construction yard and a building was just placed on
 		**	the map.
@@ -366,7 +377,7 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 
 		/*
 		**	This message is received when an object has completely left
-		** building. Sometimes special cleanup action is required when
+		**	building. Sometimes special cleanup action is required when
 		**	this event occurs.
 		*/
 		case RADIO_UNLOADED:
@@ -376,6 +387,19 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 				}
 			}
 			TechnoClass::Receive_Message(from, message, param);
+
+			if (Can_Have_Rally_Point() && Target_Legal(RallyPoint)) {
+				Queue_Mission(from->As_Target(), MISSION_MOVE, TARGET_NONE, Target_For_Rally_Point());
+				if (from->What_Am_I() == RTTI_UNIT) {
+					UnitClass* unit = (UnitClass*)from;
+					if (unit->Class->IsToHarvest) {
+						unit->InitHarvest = true;
+					}
+				}
+
+				return RADIO_ROGER;
+			}
+
 			if (*this == STRUCT_WEAP || *this == STRUCT_AIRSTRIP || *this == STRUCT_REPAIR) return(RADIO_RUN_AWAY);
 			return(RADIO_ROGER);
 
@@ -507,6 +531,16 @@ void BuildingClass::Draw_It(int x, int y, WindowNumberType window) const
 		if (IsRepairing && IsWrenchVisible) {
 			CC_Draw_Shape(ObjectTypeClass::SelectShapes, SELECT_WRENCH, x, y, window, SHAPE_CENTER|SHAPE_WIN_REL);
 		}
+	}
+
+	// Draw rally point
+	if (Can_Have_Rally_Point() && Is_Selected_By_Player() && Is_Owned_By_Player() && RallyPoint && Target_Legal(RallyPoint))
+	{
+		int startX, startY, endX, endY;
+		Map.Coord_To_Pixel(Coord_Add(Coord, Class->ExitCoordinate), startX, startY);
+		Map.Coord_To_Pixel(As_Coord(RallyPoint), endX, endY);
+
+		CC_Draw_Line(startX, startY, endX, endY, LTGREEN, 1, window);
 	}
 
 	TechnoClass::Draw_It(x, y, window);
@@ -1082,37 +1116,7 @@ bool BuildingClass::Unlimbo(COORDINATE coord, DirType dir)
 	*/
 	if (Class->IsWall) {
 		if (Can_Enter_Cell(Coord_Cell(coord), FACING_NONE) == MOVE_OK) {
-			OverlayType otype = OVERLAY_NONE;
-			switch (Class->Type) {
-				case STRUCT_SANDBAG_WALL:
-					otype	= OVERLAY_SANDBAG_WALL;
-					break;
-
-				case STRUCT_CYCLONE_WALL:
-					otype = OVERLAY_CYCLONE_WALL;
-					break;
-
-				case STRUCT_BRICK_WALL:
-					otype = OVERLAY_BRICK_WALL;
-					break;
-
-				case STRUCT_BARBWIRE_WALL:
-					otype = OVERLAY_BARBWIRE_WALL;
-					break;
-
-				case STRUCT_WOOD_WALL:
-					otype = OVERLAY_WOOD_WALL;
-					break;
-
-				case STRUCT_FENCE:
-					otype = OVERLAY_FENCE;
-					break;
-
-				default:
-					otype = OVERLAY_NONE;
-					break;
-
-			}
+			OverlayType otype = Class->Overlay_Type();
 			if (otype != OVERLAY_NONE) {
 				ObjectClass * o = OverlayTypeClass::As_Reference(otype).Create_One_Of(House);
 				if (o && o->Unlimbo(coord)) {
@@ -1815,6 +1819,10 @@ void BuildingClass::Active_Click_With(ActionType action, ObjectClass * object)
 	if (action == ACTION_TOGGLE_PRIMARY && Class->Is_Factory()) {
 		OutList.Add(EventClass(EventClass::PRIMARY, TargetClass(this)));
 	}
+
+	if (action == ACTION_MOVE && Can_Have_Rally_Point()) {
+		RallyPoint = object->As_Target();
+	}
 }
 
 
@@ -1845,12 +1853,21 @@ void BuildingClass::Active_Click_With(ActionType action, CELL cell)
 		Player_Assign_Mission(MISSION_ATTACK, ::As_Target(cell));
 	}
 
-	if (action == ACTION_MOVE && *this == STRUCT_CONST) {
-		OutList.Add(EventClass(EventClass::ARCHIVE, TargetClass(this), TargetClass(::As_Target(cell))));
-		OutList.Add(EventClass(EventClass::SELL, TargetClass(this)));
+	if (action == ACTION_MOVE) {
+		if (*this == STRUCT_CONST) {
+			OutList.Add(EventClass(EventClass::ARCHIVE, TargetClass(this), TargetClass(::As_Target(cell))));
+			OutList.Add(EventClass(EventClass::SELL, TargetClass(this)));
 
-		COORDINATE coord = Map.Pixel_To_Coord(Get_Mouse_X(), Get_Mouse_Y());
-		OutList.Add(EventClass(ANIM_MOVE_FLASH, PlayerPtr->Class->House, coord, 1 << PlayerPtr->Class->House));
+			COORDINATE coord = Map.Pixel_To_Coord(Get_Mouse_X(), Get_Mouse_Y());
+            OutList.Add(EventClass(ANIM_MOVE_FLASH, PlayerPtr->Class->House, coord, 1 << PlayerPtr->Class->House));
+		}
+		else if (Can_Have_Rally_Point()) {
+			// TODO a proper, multiplayer-compatible way would
+			// be adding a new event to set the rally point
+			// (or modifying the handling of MEGAMISSION)
+			RallyPoint = ::As_Target(cell);
+			Map.Flag_To_Redraw(true);
+		}
 	}
 }
 
@@ -1992,7 +2009,13 @@ int BuildingClass::Exit_Object(TechnoClass * base)
 					ScenarioInit++;
 					cell = Find_Exit_Cell(base);
 					if (cell != 0 && base->Unlimbo(Cell_Coord(cell), Direction(Cell_Coord(cell)))) {
-						base->Assign_Mission(MISSION_GUARD);
+						if (Can_Have_Rally_Point() && Target_Legal(RallyPoint)) {
+							base->Assign_Mission(MISSION_MOVE);
+							base->Assign_Destination(Target_For_Rally_Point());
+						}
+						else {
+							base->Assign_Mission(MISSION_GUARD);
+						}
 						ScenarioInit--;
 						return(2);
 					}
@@ -2058,7 +2081,13 @@ int BuildingClass::Exit_Object(TechnoClass * base)
 				case STRUCT_TENT:
 				case STRUCT_KENNEL:
 
-					cell = Find_Exit_Cell(base);
+					if (Can_Have_Rally_Point() && Target_Legal(RallyPoint)) {
+						cell = Map.Nearby_Location(As_Cell(RallyPoint), SPEED_FOOT);
+					}
+					else {
+						cell = Find_Exit_Cell(base);
+					}
+					
 					if (cell != 0) {
 						DirType	dir = Direction(cell);
 						COORDINATE		start = Exit_Coord();
@@ -2567,6 +2596,8 @@ void BuildingClass::Grand_Opening(bool captured)
 			UnitClass * unit = new UnitClass(UNIT_HARVESTER, House->Class->House);
 			if (unit != NULL) {
 
+				bool success = true;
+
 				/*
 				**	Try to place down the harvesters. If it could not be placed, then try
 				**	to place it in a nearby location.
@@ -2588,8 +2619,18 @@ void BuildingClass::Grand_Opening(bool captured)
 					*/
 					if (unit->IsInLimbo) {
 						House->Refund_Money(unit->Class->Cost_Of());
+						success = false;
 						delete unit;
 					}
+				}
+
+				/*
+				**	Rampastring:
+				**	If we placed the harvester successfully, then mark this
+				**	refinery as its last docking bay.
+				*/
+				if (success) {
+					unit->LastDockingBayCoord = Center_Coord();
 				}
 			} else {
 
@@ -2849,15 +2890,23 @@ ActionType BuildingClass::What_Action(ObjectClass const * object) const
 	}
 
 	/*
-	**	Don't allow targeting of SAM sites, even if the CTRL key
-	**	is held down. Also don't allow targeting if the object is too
+	**	Don't allow targeting if the object is too
 	**	far away.
+	**	Rampastring 20200608: allow manual targeting of aircraft with SAM sites and AA guns
 	*/
-	if (action == ACTION_ATTACK && (*this == STRUCT_SAM || *this == STRUCT_AAGUN || !In_Range(object, 0))) {
-		action = ACTION_NONE;
+	if (action == ACTION_ATTACK) {
+		if (!In_Range(object, 0)) {
+			action = ACTION_NONE;
+		}
+
+		if (Class->PrimaryWeapon != NULL && !Class->PrimaryWeapon->Bullet->IsAntiGround &&
+			object->What_Am_I() != RTTI_AIRCRAFT) 
+		{
+			action = ACTION_NONE;
+		}
 	}
 
-	if (action == ACTION_MOVE) {
+	if (action == ACTION_MOVE && !Can_Have_Rally_Point()) {
 		action = ACTION_NONE;
 	}
 
@@ -2888,7 +2937,7 @@ ActionType BuildingClass::What_Action(CELL cell) const
 
 	ActionType action = TechnoClass::What_Action(cell);
 
-	if (action == ACTION_MOVE && (*this != STRUCT_CONST || !Is_MCV_Deploy())) {
+	if (action == ACTION_MOVE && !Can_Have_Rally_Point() && (*this != STRUCT_CONST || !Is_MCV_Deploy())) {
 		action = ACTION_NONE;
 	}
 
@@ -3409,6 +3458,11 @@ MoveType BuildingClass::Can_Enter_Cell(CELL cell, FacingType) const
 
 	if (*this == STRUCT_CONST && IsDown) {
 		return(Map[cell].Is_Clear_To_Build(Class->Speed) ? MOVE_OK : MOVE_NO);
+	}
+
+	if (Can_Have_Rally_Point()) {
+		return Map[cell].Is_Clear_To_Move(Class->ToBuild == RTTI_VESSELTYPE ? SPEED_FLOAT : SPEED_FOOT,
+			true, true, -1, MZONE_NORMAL) ? MOVE_OK : MOVE_NO;
 	}
 
 	if (!Debug_Map && ScenarioInit == 0 && Session.Type == GAME_NORMAL && House->IsPlayerControl && !Map[cell].IsMapped) {
@@ -4287,7 +4341,18 @@ int BuildingClass::Mission_Repair(void)
 							// if (IsOwnedByPlayer) Speak(VOX_UNIT_REPAIRED);
 							if (IsOwnedByPlayer) Speak(VOX_UNIT_REPAIRED, House);
 
-//							Transmit_Message(RADIO_RUN_AWAY);
+							// Rampastring 06.10.2020: Tell repaired unit to move away
+							if (Can_Have_Rally_Point() && Target_Legal(RallyPoint)) {
+								TechnoClass* contact = Contact_With_Whom();
+								
+								contact->Assign_Mission(MISSION_MOVE);
+								contact->Assign_Destination(Target_For_Rally_Point());
+							}
+							else if (Rule.AutoRepairFacilityKickOut) {
+								Transmit_Message(RADIO_RUN_AWAY);
+								Transmit_Message(RADIO_OVER_OUT);
+							}
+
 							Begin_Mode(BSTATE_IDLE);
 							Status = IDLE;
 							break;
@@ -5204,7 +5269,7 @@ bool BuildingClass::Can_Player_Move(void) const
 	assert(Buildings.ID(this) == ID);
 	assert(IsActive);
 
-	return(*this == STRUCT_CONST && (Mission == MISSION_GUARD) && Special.IsMCVDeploy);
+	return Can_Have_Rally_Point() || (*this == STRUCT_CONST && (Mission == MISSION_GUARD) && Special.IsMCVDeploy);
 }
 
 
@@ -6085,4 +6150,44 @@ unsigned BuildingClass::Spied_By() const
 	}
 
 	return spiedby;
+}
+
+// Rampastring 20200608
+bool BuildingClass::Can_Have_Rally_Point() const 
+{
+	// TODO check attribute for TS-like heap initialization
+	if (*this == STRUCT_REPAIR) {
+		return true;
+	}	
+
+	switch (Class->ToBuild) 
+	{
+		case RTTI_UNITTYPE:
+		case RTTI_INFANTRYTYPE:
+		case RTTI_VESSELTYPE:
+			return true;
+		default:
+			return false;
+	}
+}
+
+// Code from cfehunter
+void BuildingClass::Set_Unselected_By_Player(HouseClass* player)
+{
+	TechnoClass::Set_Unselected_By_Player(player);
+	if (Can_Have_Rally_Point() && RallyPoint)
+	{
+		Map.Flag_To_Redraw(true);
+	}
+}
+
+/* 
+ * Returns the rally point as a target
+ * Original code from cfehunter, ported to RA by Rampastring
+ * (additional SpeedType arg for Nearby_Location)
+ */
+TARGET BuildingClass::Target_For_Rally_Point() const
+{
+	return Is_Target_Cell(RallyPoint) ? ::As_Target(Map.Nearby_Location(As_Cell(RallyPoint),
+		Class->ToBuild == RTTI_VESSELTYPE ? SPEED_FLOAT : SPEED_FOOT)) : RallyPoint;
 }

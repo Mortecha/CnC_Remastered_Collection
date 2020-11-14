@@ -112,14 +112,22 @@ class UnitClass :	public DriveClass
 		FacingClass SecondaryFacing;
 
 		/*
-		**	This is the refinery a harvester is interested in unloading at.
+		**	The coodinate of the last docking bay for this unit.
+		**	The unit should prefer docking with it or a nearby
+		**	docking bay when seeking for a building to dock with.
 		*/
-		mutable TARGET TiberiumUnloadRefinery;
+		COORDINATE LastDockingBayCoord;
+
+		/*
+		**	Determines whether the unit should start harvesting
+		**	once it has finished moving to its rally point.
+		*/
+		bool InitHarvest;
 
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[28];
+		unsigned char SaveLoadPadding[27];
 
 		/*---------------------------------------------------------------------
 		**	Constructors, Destructors, and overloaded operators.
@@ -166,7 +174,6 @@ class UnitClass :	public DriveClass
 		virtual bool Ok_To_Move(DirType facing) const;
 		virtual FireErrorType Can_Fire(TARGET target, int which) const;
 		virtual fixed Tiberium_Load(void) const;
-		virtual BuildingClass* Find_Best_Refinery(void) const;
 
 		/*
 		**	Coordinate inquiry functions. These are used for both display and

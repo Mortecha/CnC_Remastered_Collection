@@ -317,7 +317,8 @@ UnitClass::UnitClass(UnitType classid, HousesType house) :
 	ShroudCenter(0),
 	Reload(0),
 	SecondaryFacing(PrimaryFacing),
-	TiberiumUnloadRefinery(TARGET_NONE)
+	LastDockingBayCoord(0),
+	InitHarvest(false)
 {
 	Reload = 0;
 	House->Tracking_Add(this);
@@ -869,11 +870,7 @@ RadioMessageType UnitClass::Receive_Message(RadioClass * from, RadioMessageType 
 							**	transport doors. Close the doors if the transport is or needs
 							**	to rotate.
 							*/
-#ifdef FIXIT_PHASETRANSPORT	//	checked - ajw 9/28/98
 							if (*this == UNIT_APC || *this == UNIT_PHASE) {
-#else
-							if (*this == UNIT_APC) {
-#endif
 								if (IsRotating) {
 									if (!Is_Door_Closed()) {
 										APC_Close_Door();
@@ -891,11 +888,7 @@ RadioMessageType UnitClass::Receive_Message(RadioClass * from, RadioMessageType 
 							**	directly.
 							*/
 							if (Transmit_Message(RADIO_MOVE_HERE, param, from) == RADIO_YEA_NOW_WHAT) {
-#ifdef FIXIT_PHASETRANSPORT	//	checked - ajw 9/28/98
 								if ( (*this != UNIT_APC && *this != UNIT_PHASE) || Is_Door_Open()) {
-#else
-								if (*this != UNIT_APC || Is_Door_Open()) {
-#endif
 									param = (long)As_Target();
 									Transmit_Message(RADIO_TETHER);
 									if (Transmit_Message(RADIO_MOVE_HERE, param, from) != RADIO_ROGER) {
@@ -911,22 +904,6 @@ RadioMessageType UnitClass::Receive_Message(RadioClass * from, RadioMessageType 
 				return(RADIO_ROGER);
 			}
 			break;
-
-		/*
-		**	Something bad has happened to the object in contact with. Abort any coordinated
-		**	activity with this object. Basically, ... run away! Run away!
-		*/
-		case RADIO_RUN_AWAY:
-			if (Class->IsToHarvest && In_Radio_Contact() && Mission == MISSION_ENTER) {
-				TechnoClass * contact = Contact_With_Whom();
-				if (contact->What_Am_I() == RTTI_BUILDING && *((BuildingClass*)contact) == STRUCT_REFINERY) {
-					// Slight hack; set a target so the harvest mission knows to skip to finding home state
-					Assign_Mission(MISSION_HARVEST);
-					TarCom = As_Target();
-					return(RADIO_ROGER);
-				}
-			}
-			return(DriveClass::Receive_Message(from, message, param));
 
 		/*
 		**	When this message is received, it means that the other object
@@ -1351,7 +1328,7 @@ void UnitClass::Player_Assign_Mission(MissionType mission, TARGET target, TARGET
  *    state. This idle state varies depending on what the current internal computer            *
  *    settings of the unit is as well as what kind of unit it is.                              *
  *                                                                                             *
- * INPUT:   initial  -- Is this called when the unit just leaves a factory or is initially     *
+ * INPUT:   initial  -- Is this called when the unit just leaves a factory or                  *
  *                      or is initially placed on the map?                                     *
  *                                                                                             *
  * OUTPUT:  none                                                                               *
@@ -1391,7 +1368,7 @@ void UnitClass::Enter_Idle_Mode(bool initial)
 		if (!Is_Weapon_Equipped()) {
 			if (Class->IsToHarvest) {
 				if (!In_Radio_Contact() && Mission != MISSION_HARVEST && MissionQueue != MISSION_HARVEST) {
-					if (initial || !House->IsHuman || Map[Coord].Land_Type() == LAND_TIBERIUM) {
+					if (initial || InitHarvest || !House->IsHuman || Map[Coord].Land_Type() == LAND_TIBERIUM) {
 						order = MISSION_HARVEST;
 					} else {
 						order = MISSION_GUARD;
@@ -2309,63 +2286,52 @@ bool UnitClass::Goto_Tiberium(int rad)
 			return(true);
 		} else {
 
+			int closestDistance = SHRT_MAX;
+			CELL closestCell = SHRT_MAX;
+			CELL lastDockingBayCell = center;
+			if (LastDockingBayCoord) {
+				lastDockingBayCell = Coord_Cell(LastDockingBayCoord);
+			}
+
 			/*
 			**	Perform a ring search outward from the center.
+			**	Rampastring: Always try to harvest from the cell that's closest
+			**	to our refinery.
 			*/
 			for (int radius = 1; radius < rad; radius++) {
-				CELL cell = center;
-				CELL bestcell = 0;
-				int tiberium = 0;
-				int besttiberium = 0;
+				int distance = -1;
 				for (int x = -radius; x <= radius; x++) {
-
-					/*
-					**	Randomize the corners.
-					*/
-					int corner[2];
-					int corners[4][2] = {
-						{x, -radius},
-						{x, +radius},
-						{-radius, x},
-						{+radius, x}
-					};
-					for (int i = 0; i < 3; i++) {
-						int j = i + rand() / (RAND_MAX / (4 - i) + 1);
-						memcpy(&corner, &corners[j], sizeof(corner));
-						memcpy(&corners[j], &corners[i], sizeof(corner));
-						memcpy(&corners[i], corner, sizeof(corner));
+					CELL cell = XY_Cell(Cell_X(center) + x, Cell_Y(center) - radius);
+					distance = ::Distance(lastDockingBayCell, cell);
+					if (distance < closestDistance && Tiberium_Check(cell, 0, 0)) {
+						closestDistance = distance;
+						closestCell = cell;
 					}
 
-					cell = center;
-					tiberium = Tiberium_Check(cell, corners[0][0], corners[0][1]);
-					if (tiberium > besttiberium) {
-						bestcell = cell;
-						besttiberium = tiberium;
+					cell = XY_Cell(Cell_X(center) + x, Cell_Y(center) + radius);
+					distance = ::Distance(lastDockingBayCell, cell);
+					if (distance < closestDistance && Tiberium_Check(cell, 0, 0)) {
+						closestDistance = distance;
+						closestCell = cell;
 					}
 
-					cell = center;
-					tiberium = Tiberium_Check(cell, corners[1][0], corners[1][1]);
-					if (tiberium > besttiberium) {
-						bestcell = cell;
-						besttiberium = tiberium;
+					cell = XY_Cell(Cell_X(center) - radius, Cell_Y(center) + x);
+					distance = ::Distance(lastDockingBayCell, cell);
+					if (distance < closestDistance && Tiberium_Check(cell, 0, 0)) {
+						closestDistance = distance;
+						closestCell = cell;
 					}
 
-					cell = center;
-					tiberium = Tiberium_Check(cell, corners[2][0], corners[2][1]);
-					if (tiberium > besttiberium) {
-						bestcell = cell;
-						besttiberium = tiberium;
-					}
-
-					cell = center;
-					tiberium = Tiberium_Check(cell, corners[3][0], corners[3][1]);
-					if (tiberium > besttiberium) {
-						bestcell = cell;
-						besttiberium = tiberium;
+					cell = XY_Cell(Cell_X(center) + radius, Cell_Y(center) + x);
+					distance = ::Distance(lastDockingBayCell, cell);
+					if (distance < closestDistance && Tiberium_Check(cell, 0, 0)) {
+						closestDistance = distance;
+						closestCell = cell;
 					}
 				}
-				if (bestcell) {
-					Assign_Destination(::As_Target(bestcell));
+
+				if (closestDistance < SHRT_MAX) {
+					Assign_Destination(::As_Target(closestCell));
 					return(false);
 				}
 			}
@@ -2374,7 +2340,6 @@ bool UnitClass::Goto_Tiberium(int rad)
 
 	return(false);
 }
-
 
 /***********************************************************************************************
  * UnitClass::Harvesting -- Harvests tiberium at the current location.                         *
@@ -2514,76 +2479,7 @@ int UnitClass::Mission_Unload(void)
 			Transmit_Message(RADIO_OVER_OUT);
 
 			Assign_Mission(MISSION_HARVEST);
-			break;
-
-		case UNIT_TRUCK:
-			switch (Status) {
-				case INITIAL_CHECK:
-					dir = Desired_Load_Dir(NULL, cell);
-					if (How_Many() && cell != 0) {
-						Do_Turn(dir);
-						Status = MANEUVERING;
-						return(1);
-					} else {
-						Assign_Mission(MISSION_GUARD);
-					}
-					break;
-
-				case MANEUVERING:
-					if (!IsRotating) {
-						Status = UNLOADING;
-						return(1);
-					}
-					break;
-
-				case UNLOADING:
-					if (How_Many()) {
-						FootClass * passenger = Detach_Object();
-
-						if (passenger != NULL) {
-							DirType toface = DIR_S + PrimaryFacing;
-							bool placed = false;
-
-							for (FacingType face = FACING_N; face < FACING_COUNT; face++) {
-								DirType newface = toface + Facing_Dir(face);
-								CELL newcell = Adjacent_Cell(Coord_Cell(Coord), newface);
-
-								if (passenger->Can_Enter_Cell(newcell) == MOVE_OK) {
-									ScenarioInit++;
-									passenger->Unlimbo(Coord_Move(Coord, newface, 0x0080), newface);
-									ScenarioInit--;
-									passenger->Assign_Mission(MISSION_MOVE);
-									passenger->Assign_Destination(::As_Target(newcell));
-									placed = true;
-									break;
-								}
-							}
-
-							/*
-							** If the attached unit could NOT be deployed, then re-attach
-							**	it and then bail out of this deploy process.
-							*/
-							if (!placed) {
-								Attach(passenger);
-								Status = CLOSING_DOOR;
-							}
-							else {
-								passenger->Look(false);
-							}
-						}
-					} else {
-						Status = CLOSING_DOOR;
-					}
-					break;
-
-				/*
-				**	Close APC door in preparation for normal operation.
-				*/
-				case CLOSING_DOOR:
-					Assign_Mission(MISSION_GUARD);
-					break;
-			}
-			break;
+			break;		
 
 		case UNIT_APC:
 #ifdef FIXIT_PHASETRANSPORT	//	checked - ajw 9/28/98
@@ -2858,7 +2754,76 @@ int UnitClass::Mission_Unload(void)
 			Assign_Mission(MISSION_GUARD);
 			break;
 #endif
+		case UNIT_TRUCK:
 		default:
+			switch (Status) {
+				case INITIAL_CHECK:
+					dir = Desired_Load_Dir(NULL, cell);
+					if (How_Many() && cell != 0) {
+						Do_Turn(dir);
+						Status = MANEUVERING;
+						return(1);
+					}
+					else {
+						Assign_Mission(MISSION_GUARD);
+					}
+					break;
+
+				case MANEUVERING:
+					if (!IsRotating) {
+						Status = UNLOADING;
+						return(1);
+					}
+					break;
+
+				case UNLOADING:
+					if (How_Many()) {
+						FootClass* passenger = Detach_Object();
+
+						if (passenger != NULL) {
+							DirType toface = DIR_S + PrimaryFacing;
+							bool placed = false;
+
+							for (FacingType face = FACING_N; face < FACING_COUNT; face++) {
+								DirType newface = toface + Facing_Dir(face);
+								CELL newcell = Adjacent_Cell(Coord_Cell(Coord), newface);
+
+								if (passenger->Can_Enter_Cell(newcell) == MOVE_OK) {
+									ScenarioInit++;
+									passenger->Unlimbo(Coord_Move(Coord, newface, 0x0080), newface);
+									ScenarioInit--;
+									passenger->Assign_Mission(MISSION_MOVE);
+									passenger->Assign_Destination(::As_Target(newcell));
+									placed = true;
+									break;
+								}
+							}
+
+							/*
+							** If the attached unit could NOT be deployed, then re-attach
+							**	it and then bail out of this deploy process.
+							*/
+							if (!placed) {
+								Attach(passenger);
+								Status = CLOSING_DOOR;
+							}
+							else {
+								passenger->Look(false);
+							}
+						}
+					}
+					else {
+						Status = CLOSING_DOOR;
+					}
+					break;
+
+					/*
+					**	Close APC door in preparation for normal operation.
+					*/
+				case CLOSING_DOOR:
+					Assign_Mission(MISSION_GUARD);
+					break;
+			}
 			break;
 	}
 	return(MissionControl[Mission].Normal_Delay() + Random_Pick(0, 2));
@@ -2901,6 +2866,8 @@ int UnitClass::Mission_Harvest(void)
 	**	allows combat units to act "brain dead".
 	*/
 	if (!Class->IsToHarvest) return(TICKS_PER_SECOND*30);
+
+	InitHarvest = false;
 
 	/*
 	**	If there are no more refineries, then drop into guard mode.
@@ -3009,25 +2976,29 @@ int UnitClass::Mission_Harvest(void)
 			if (!Target_Legal(NavCom)) {
 
 				/*
-				**	Find best refinery.
+				**	Find nearby refinery and head to it?
 				*/
-				BuildingClass * nearest = Find_Best_Refinery();
+				BuildingClass * nearest = Find_Docking_Bay(STRUCT_REFINERY, false);
+				ScenarioInit++;
+				BuildingClass * possiblyOccupied = Find_Docking_Bay(STRUCT_REFINERY, false);
+				ScenarioInit--;
 
 				/*
 				**	Since the refinery said it was ok to load, establish radio
 				**	contact with the refinery and then await docking orders.
 				*/
-				if (nearest != NULL && Transmit_Message(RADIO_HELLO, nearest) == RADIO_ROGER) {
+				if (nearest != NULL &&
+					(nearest == possiblyOccupied || ::Distance(Coord_Cell(nearest->Center_Coord()), Coord_Cell(possiblyOccupied->Center_Coord())) < Rule.MaxFreeRefineryDistanceBias)
+					&& Transmit_Message(RADIO_HELLO, nearest) == RADIO_ROGER) {
 					Status = HEADINGHOME;
+					LastDockingBayCoord = nearest->Center_Coord();
 					if (nearest->House == PlayerPtr && (PlayerPtr->Capacity - PlayerPtr->Tiberium) < 300 && PlayerPtr->Capacity > 500 && (PlayerPtr->ActiveBScan & (STRUCTF_REFINERY | STRUCTF_CONST))) {
 						Speak(VOX_NEED_MO_CAPACITY);
 					}
 				} else {
-					ScenarioInit++;
-					nearest = Find_Best_Refinery();
-					ScenarioInit--;
-					if (nearest != NULL) {
-						Assign_Destination(::As_Target(Nearby_Location(nearest)));
+					if (possiblyOccupied != NULL) {
+						Assign_Destination(::As_Target(Nearby_Location(possiblyOccupied)));
+						LastDockingBayCoord = possiblyOccupied->Center_Coord();
 					}
 				}
 			}
@@ -3051,7 +3022,9 @@ int UnitClass::Mission_Harvest(void)
 				if (House->ActiveBScan & STRUCTF_REPAIR) {
 					Assign_Mission(MISSION_REPAIR);
 				} else {
-					Assign_Mission(MISSION_HUNT);
+					// Wait for ore regrowth, attempt to find more ore in a minute
+					Status = LOOKING;
+					return TICKS_PER_MINUTE;
 				}
 			}
 			Assign_Mission(MISSION_GUARD);
@@ -3602,7 +3575,10 @@ ActionType UnitClass::What_Action(ObjectClass const * object) const
 					if (How_Many() == 0) {
 						action = ACTION_NO_DEPLOY;
 					}
-				} else {
+				} else if (PlayerPtr->IsQueuedMovementToggle) {
+					action = ACTION_MOVE;
+				}
+				else {
 					action = ACTION_NONE;
 				}
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
@@ -3828,25 +3804,59 @@ int UnitClass::Mission_Move(void)
 	return(DriveClass::Mission_Move());
 }
 
-
-int UnitClass::Mission_Enter(void)
+/*
+ * Overridden by Rampastring.
+ * Makes harvesters not go idle if their refinery is destroyed.
+ */
+int UnitClass::Mission_Enter(void) 
 {
 	assert(Units.ID(this) == ID);
 	assert(IsActive);
 
-	if (Class->IsToHarvest) {
-		TechnoClass * contact = Contact_With_Whom();
-		if (contact == NULL) {
-			contact = As_Techno(ArchiveTarget);
-		}
-		if (contact != NULL &&
-			contact->What_Am_I() == RTTI_BUILDING &&
-			*((BuildingClass*)contact) == STRUCT_REFINERY) {
-			TiberiumUnloadRefinery = contact->As_Target();
-		}
+	if (!Class->IsToHarvest) {
+		return FootClass::Mission_Enter();
 	}
 
-	return(DriveClass::Mission_Enter());
+	/*
+	**	Find out who to coordinate with. If in radio contact, then this the transporter is
+	**	defined. If not in radio contact, then try the archive target value to see if that
+	**	is suitable.
+	*/
+	TechnoClass * contact = Contact_With_Whom();
+	if (contact == NULL) {
+		contact = As_Techno(ArchiveTarget);
+	}
+
+	/*
+	**	If in contact, then let the refinery handle the movement coordination.
+	*/
+	if (contact != NULL) {
+		/*
+		**	If the building says to "bug off", then abort the enter mission
+		**	and search for a new refinery.
+		*/
+		if (Transmit_Message(RADIO_DOCKING, contact) != RADIO_ROGER && !IsTethered) {
+			// Are we dealing with a refinery?
+			if (contact->RTTI == RTTI_BUILDING && *((BuildingClass*)contact) == STRUCT_REFINERY) {
+				Transmit_Message(RADIO_OVER_OUT);
+				Assign_Mission(MISSION_HARVEST);
+				Status = 2; // TODO: FINDHOME
+			}
+			else {
+				Transmit_Message(RADIO_OVER_OUT);
+				Enter_Idle_Mode();
+			}
+		}
+	}
+	else {
+		/*
+		**	There is no refinery to enter, try again after a delay
+		*/
+		Assign_Mission(MISSION_HARVEST);
+		Status = 2; // TODO: FINDHOME
+	}
+
+	return(MissionControl[Mission].Normal_Delay() + Random_Pick(0, 2));
 }
 
 
@@ -4438,32 +4448,6 @@ fixed UnitClass::Tiberium_Load(void) const
 		return(fixed(Tiberium, Rule.BailCount));
 	}
 	return(0);
-}
-
-
-BuildingClass* UnitClass::Find_Best_Refinery(void) const
-{
-	/*
-	**	Remember our last refinery and prefer that one, if still available and valid.
-	*/
-	if (Target_Legal(TiberiumUnloadRefinery)) {
-		BuildingClass * refinery = As_Building(TiberiumUnloadRefinery);
-		if (refinery != NULL &&
-			refinery->House == House &&
-			!refinery->IsInLimbo &&
-			refinery->Mission != MISSION_DECONSTRUCTION &&
-			*refinery == STRUCT_REFINERY &&
-			Map[refinery->Center_Coord()].Zones[Techno_Type_Class()->MZone] == Map[Center_Coord()].Zones[Techno_Type_Class()->MZone]) {
-			return refinery;
-		} else {
-			TiberiumUnloadRefinery = TARGET_NONE;
-		}
-	}
-
-	/*
-	**	Find nearby refinery and head to it?
-	*/
-	return Find_Docking_Bay(STRUCT_REFINERY, false);
 }
 
 

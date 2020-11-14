@@ -140,6 +140,11 @@
 */
 #include "SidebarGlyphx.h"
 
+/*
+** pchote - "Modern Wall Building" mod.
+*/
+extern bool DLL_Export_Get_Input_Key_State(KeyNumType key);
+
 TFixedIHeapClass<HouseClass::BuildChoiceClass> HouseClass::BuildChoice;
 
 int TFixedIHeapClass<HouseClass::BuildChoiceClass>::Save(Pipe &) const
@@ -3184,9 +3189,33 @@ bool HouseClass::Place_Object(RTTIType type, CELL cell)
 				if (builder) {
 
 					builder->Transmit_Message(RADIO_HELLO, tech);
+
+					/*
+					** If tech is a wall it will be replaced with an overlay and freed by Unlimbo.
+					** We must fetch the overlay type now, while we still can.
+					** pchote - "Modern Wall Building" mod.
+					*/
+					OverlayType otype = OVERLAY_NONE;
+					HousesType house = tech->House->Class->House;
+					if (tech->What_Am_I() == RTTI_BUILDING)
+						otype = ((BuildingClass*)tech)->Class->Overlay_Type();
+
 					if (tech->Unlimbo(Cell_Coord(cell))) {
 						factory->Completed();
 						Abandon_Production(type);
+
+						/*
+						** Add the line-built wall segments to the map.
+						** pchote - "Modern Wall Building" mod.
+						*/
+						bool ctrldown = DLL_Export_Get_Input_Key_State(KN_LCTRL);
+						if (otype != OVERLAY_NONE && !ctrldown)
+						{
+							OverlayTypeClass const & wall = OverlayTypeClass::As_Reference(otype);
+							DirType cardinal[4] = { DIR_N, DIR_E, DIR_S, DIR_W };
+							for (int i = 0; i < 4; i++)
+								Extend_Wall(wall, house, cell, cardinal[i], Rule.MaxWallExtensionDistance);
+						}
 
 						if (PlayerPtr == this) {
 							Sound_Effect(VOC_PLACE_BUILDING_DOWN);
@@ -3214,6 +3243,67 @@ bool HouseClass::Place_Object(RTTIType type, CELL cell)
 	}
 
 	return(true);
+}
+
+
+/***********************************************************************************************
+ * HouseClass::Extend_Wall -- Attempt to extend a line-built wall                              *
+ *                                                                                             *
+ *    This routine implements the wall placement behaviour from OpenRA.                        *
+ *    Step outwards in a specified direction up to a specified number of cells.                *
+ *    If we encounter an overlay of the specified wall type, break and create wall overlay     *
+ *    in the intermediate cells. If a matching wall is not found, or we encounter an           *
+ *    obstacle, return without doing anything.                                                 *
+ *                                                                                             *
+ * INPUT:   wall     -- The overlay type that is being placed down on the map.                 *
+ *                                                                                             *
+ *          house    -- The owner for newly placed wall segments                               *
+ *                                                                                             *
+ *          cell     -- The reference cell to check next to                                    *
+ *                                                                                             *
+ *          dir      -- The direction to step from the reference cell                          *
+ *                                                                                             *
+ *          step     -- The maximum number of steps to check for a connecting wall             *
+ *                                                                                             *
+ * OUTPUT:  Was the wall successfully extended?                                                *
+ *                                                                                             *
+ *                                                                                             *
+ * HISTORY:                                                                                    *
+ *   04/29/2020 pchote : Created for the "Modern Wall Building" mod.                           *
+ *=============================================================================================*/
+bool HouseClass::Extend_Wall(OverlayTypeClass const& wall, HousesType house, CELL cell, DirType dir, int step)
+{
+	// Step in the requested direction and abort if it is outside the map
+	CELL adjacent = Adjacent_Cell(cell, dir);
+	if (!Map.In_Radar(adjacent))
+		return false;
+
+	// Check whether the cell contains a connectable wall
+	OverlayType overlay = Map[adjacent].Overlay;
+	if (overlay == wall.Type)
+		return true;
+
+	// Cell is blocked by something else
+	if (!Map[adjacent].Is_Clear_To_Build())
+		return false;
+
+	// Cell does not contain a connectable wall. Does the next?
+	if (step > 1 && Extend_Wall(wall, house, adjacent, dir, step - 1))
+	{
+		// The next cell does indeed have a wall
+		// Place our new connector and tell the caller that there is now a new connectable wall
+		if (wall.Create_And_Place(adjacent, house))
+		{
+			// Set the owner so players can sell line-built walls
+			// For some reason Create_And_Place does not do this for us
+			Map[adjacent].Owner = house;
+			return true;
+		}
+
+		return true;
+	}
+
+	return false;
 }
 
 
@@ -4452,7 +4542,7 @@ void HouseClass::Sell_Wall(CELL cell)
 						Sound_Effect(VOC_CASHTURN);
 					}
 
-					Refund_Money(btype->Raw_Cost() * Rule.RefundPercent);
+					Refund_Money((btype->Raw_Cost() / Rule.WallSellPriceDivisor) * Rule.RefundPercent);
 					Map[cell].Overlay = OVERLAY_NONE;
 					Map[cell].OverlayData = 0;
 					Map[cell].Owner = HOUSE_NONE;
@@ -7556,12 +7646,50 @@ bool HouseClass::Is_Hack_Prevented(RTTIType rtti, int value) const
  *=============================================================================================*/
 bool HouseClass::Fire_Sale(void)
 {
+	// Check if we should leave a single building standing instead of selling everything.
+	// We should leave a building if we currently have enough buildings or units
+	// that we can still do damage with our units.
+	bool leaveABuilding = Special.IsEarlyWin;
+	if (leaveABuilding) {
+		int objectCount = 0;
+		for (int index = 0; index < Units.Count(); index++) {
+			UnitClass* c = Units.Ptr(index);
+			if (c != NULL && !c->IsInLimbo && c->House == this && c->Strength > 0) {
+				objectCount++;
+			}
+		}
+
+		for (int index = 0; index < Infantry.Count(); index++) {
+			InfantryClass* i = Infantry.Ptr(index);
+			if (i != NULL && !i->IsInLimbo && i->House == this && i->Strength > 0) {
+				objectCount++;
+			}
+		}
+
+		for (int index = 0; index < Buildings.Count(); index++) {
+			BuildingClass* b = Buildings.Ptr(index);
+			if (b != NULL && !b->IsInLimbo && b->House == this && b->Strength > 0 && b->Class->IsCrew) {
+				// You typically get multiple infantry from selling a building
+				objectCount = objectCount + 2;
+			}
+		}
+
+		if (objectCount < Rule.AISurrenderObjectCountThreshold) {
+			leaveABuilding = false;
+		}
+	}
+
 	if (CurBuildings > 0) {
 		for (int index = 0; index < Buildings.Count(); index++) {
 			BuildingClass * b = Buildings.Ptr(index);
 
 			if (b != NULL && !b->IsInLimbo && b->House == this && b->Strength > 0) {
-				b->Sell_Back(1);
+				if (leaveABuilding && !b->Class->IsWall) {
+					leaveABuilding = false;
+				}
+				else {
+					b->Sell_Back(1);
+				}
 			}
 		}
 		return(true);
